@@ -37,6 +37,8 @@ submit → replicate → issue-auto-close cycle.
       AccountPatchReviewDb off H2
 - [x] `scripts/15-gitea-postgresql.sh` — migrates Gitea off SQLite,
       preserving all data
+- [x] `scripts/16-nginx-tls.sh` — self-signed HTTPS on `:8453`/`:8454`,
+      additive alongside the existing plain-HTTP `:8090`/`:8091`
 - [ ] Production hardening beyond what's listed above (see below) — not
       done, this is a lab install
 - [ ] Gerrit → Gitea webhook for in-review issue visibility — deferred, see
@@ -49,7 +51,7 @@ submit → replicate → issue-auto-close cycle.
 | OpenLDAP | slapd 2.6.10 | `:389`, `ldapi:///` | `cn=config` (olc) | `slapd` |
 | Gitea | 1.27.1 | `127.0.0.1:3000` (HTTP), `:2222` (SSH) | `/etc/gitea/app.ini` | `gitea` |
 | Gerrit | 3.14.2 | `127.0.0.1:8080` (HTTP), `:29418` (SSH) | `/var/lib/gerrit/etc/*.config` | `gerrit` |
-| nginx | 1.26.3 | `:8090`→Gerrit, `:8091`→Gitea | `/etc/nginx/sites-available/gerrit-gitea-lab.conf` | `nginx` |
+| nginx | 1.26.3 | `:8090`→Gerrit, `:8091`→Gitea (HTTP); `:8453`→Gerrit, `:8454`→Gitea (HTTPS, self-signed) | `/etc/nginx/sites-available/gerrit-gitea-lab.conf` | `nginx` |
 | PostgreSQL | 17 | `127.0.0.1:5432` | `/etc/postgresql/17/main/` | `postgresql` |
 
 Gerrit's `AccountPatchReviewDb` (file-reviewed checkboxes) lives in
@@ -270,17 +272,22 @@ This lab intentionally cut corners a production install shouldn't. Status:
   Everything downstream (Gerrit ACLs bound to `ldap/<dn>` groups, Gitea's
   group-to-team sync) is structurally identical either way; only the
   connection details change.
-- [ ] **Put real TLS + a real domain in front of both services.** Can't be
-  executed on this lab host (no public DNS to get a real CA-signed cert
-  for — Let's Encrypt needs one). nginx already does the reverse-proxy
-  plumbing (`scripts/08-nginx.sh`); a real deployment adds a cert (Let's
-  Encrypt via `certbot`, or your org's own CA) and listens on `:443`
-  instead of `:8091`/`:8090`, which exist here solely because this host's
-  port `:80` was already taken by an unrelated Apache2. Gerrit's
-  `httpd.listenUrl` is already `proxy-http://` (trusting forwarded
-  headers from a reverse proxy), so no Gerrit-side change is needed beyond
-  updating `gerrit.canonicalWebUrl` to the real `https://` URL; Gitea
-  similarly just needs `ROOT_URL` updated in `app.ini`.
+- [x] **TLS termination on nginx** — partially done. `scripts/16-nginx-tls.sh`
+  adds self-signed HTTPS on `:8453`/`:8454`, purely additive alongside the
+  existing plain-HTTP `:8090`/`:8091`, to demonstrate TLS termination
+  actually works (verified live) without touching anything that currently
+  depends on the `http://` URLs (Gerrit's `canonicalWebUrl`, the
+  replication URL, every script/doc in this project).
+  **Real TLS + a real domain is still not done** and can't be executed on
+  this lab host (no public DNS to get a real CA-signed cert for — Let's
+  Encrypt needs one). A real deployment replaces the self-signed cert with
+  one from Let's Encrypt (`certbot`) or your org's own CA, moves onto
+  `:443` instead of the alt ports (which exist here solely because this
+  host's port `:80` was already taken by an unrelated Apache2), and
+  updates `gerrit.canonicalWebUrl` and Gitea's `ROOT_URL` to the real
+  `https://` URL — Gerrit's `httpd.listenUrl` is already `proxy-http://`
+  (trusting forwarded headers from a reverse proxy), so no other
+  Gerrit-side change is needed.
 - [x] **Move Gerrit off H2 and Gitea off SQLite onto PostgreSQL** — done,
   via `scripts/13-postgresql.sh`, `scripts/14-gerrit-postgresql.sh`, and
   `scripts/15-gitea-postgresql.sh`. Neither turned out to be a simple

@@ -144,6 +144,19 @@ These cost real debugging time; they're recorded here so the next person
     into `All-Projects`' ACL (as `scripts/05-gerrit-acl.sh` does) so
     *membership in the LDAP group* is the actual source of truth for who
     gets Gerrit admin rights.
+11. **Gitea's team-edit API silently discards a partial `PATCH`.** Sending
+    `{"includes_all_repositories": true}` alone returns `HTTP 200` with the
+    field still `false` in the response — no error, nothing to notice
+    unless you actually read the response back. This bit us for real: an
+    earlier version of `scripts/07-replication.sh` sent exactly that
+    partial PATCH, every subsequent script run kept logging success, and
+    the `Developers` team's grant silently never took effect — LDAP
+    developers got `404` on the mirrored repo, its issues, *and* its wiki
+    the entire time, only caught while testing wiki access for
+    WORKFLOW.md section 4. Always resend the full team object (`units_map`
+    included) on any team edit, and verify by reading the field back
+    afterward rather than trusting the HTTP status code — which is exactly
+    what the fixed script now does.
 
 ## Production hardening (not done here)
 

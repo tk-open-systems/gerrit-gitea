@@ -104,15 +104,40 @@ gitea_api -X PUT "${GITEA_URL}/api/v1/teams/${REPL_TEAM_ID}/members/${REPL_USER}
 log "ensured ${REPL_USER} is a member of ${ORG}/Replication."
 
 # --- 3b. fix: Developers team (phase 5) also needs includes_all_repositories=true,
-#     otherwise it only applies to repos that existed at team-creation time. ---
+#     otherwise it only applies to repos that existed at team-creation time.
+#
+# Gitea's team-edit API silently DISCARDS this field if the PATCH body
+# doesn't also resend units_map/permission alongside it -- it returns
+# HTTP 200 with includes_all_repositories still false, no error at all.
+# This bit us for real: an earlier version of this script sent
+# includes_all_repositories alone, which silently no-op'd, and every
+# script since kept reporting success while Developers-team accounts
+# actually got 404 on the repo, its issues, and its wiki (discovered
+# only when testing wiki access as alice for WORKFLOW.md section 4 --
+# not caught by this script's own logging, which trusted the API's 200
+# instead of reading back the result). Always resend the full team
+# object, and verify the readback afterward rather than trusting the
+# HTTP status alone. ---
 DEV_TEAM_ID=$(echo "$TEAMS_JSON" | python3 -c 'import json,sys
 teams=[t for t in json.load(sys.stdin) if t["name"]=="Developers"]
 print(teams[0]["id"] if teams else "")')
 [ -n "$DEV_TEAM_ID" ] || die "Developers team not found -- run scripts/06-gitea-ldap.sh first"
-gitea_api -X PATCH -H 'Content-Type: application/json' \
-  -d '{"includes_all_repositories": true}' \
-  "${GITEA_URL}/api/v1/teams/${DEV_TEAM_ID}" >/dev/null
-log "ensured '${ORG}/Developers' applies to all (incl. future) org repos."
+gitea_api -X PATCH -H 'Content-Type: application/json' -d '{
+    "description": "Plan/discuss access; code is a read-only Gerrit mirror.",
+    "permission": "read",
+    "includes_all_repositories": true,
+    "units_map": {
+      "repo.code": "read",
+      "repo.issues": "write",
+      "repo.wiki": "write",
+      "repo.projects": "write"
+    }
+  }' "${GITEA_URL}/api/v1/teams/${DEV_TEAM_ID}" >/dev/null
+
+gitea_api "${GITEA_URL}/api/v1/teams/${DEV_TEAM_ID}" \
+  | python3 -c 'import json,sys; d=json.load(sys.stdin); sys.exit(0 if d["includes_all_repositories"] else 1)' \
+  || die "includes_all_repositories still false on ${ORG}/Developers after PATCH -- Gitea silently dropped it again"
+log "confirmed (via readback, not just HTTP status) '${ORG}/Developers' applies to all org repos."
 
 # --- 4. Gerrit replication.config + secure.config ---
 cd "$SITE"

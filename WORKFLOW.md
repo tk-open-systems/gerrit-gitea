@@ -108,12 +108,24 @@ Use Gerrit's **replication plugin**, not Gitea's pull-mirror:
 2. Dev clones/pushes to **Gerrit**
    (`git push origin HEAD:refs/for/main`); the commit message references
    the Gitea issue.
-3. Review happens in Gerrit (Code-Review/Verified labels, patchsets).
+3. Review happens in Gerrit (currently just the `Code-Review` label —
+   `Verified` isn't configured yet, since it's normally cast by a CI bot
+   and there's no CI wired up; see "Open items" below).
 4. On submit, Gerrit merges to the branch and the replication plugin
    pushes the new ref to Gitea.
-5. Gitea ingests the push, auto-closes the linked issue, and moves the
-   kanban card.
+5. Gitea ingests the push and auto-closes the linked issue (**not** its
+   kanban card, if it's on one — see section 3).
 6. Wiki stays a normal writable Gitea repo (not mirrored) for docs.
+
+Every step from 1 onward assumes a developer's LDAP `developers`-group
+membership actually grants working Gitea access (repo read, issue
+write, wiki write) — worth calling out because it silently didn't for a
+while: a Gitea API quirk (see SYSADMIN.md gotcha 11) meant the
+`Developers` team's org-wide grant never actually took effect, so
+developers got `404` on the repo, its issues, and its wiki the entire
+time despite every setup script reporting success. Confirmed fixed by
+testing as alice (an actual `developers`-group account, not an admin)
+directly against steps 1 and 6 above, end to end.
 
 ## Open items / future work
 

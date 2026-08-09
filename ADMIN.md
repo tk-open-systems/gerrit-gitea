@@ -123,6 +123,23 @@ automatically (they're org-wide via `includes_all_repositories`, set up in
 `scripts/06-gitea-ldap.sh`/`scripts/07-replication.sh`), but nobody outside
 those teams can see it until/unless you change that.
 
+**One required follow-up step**, until this is automated: push-to-create
+leaves the new repo's Pull Requests unit *enabled*, which WORKFLOW.md
+section 1 explicitly says should be off (contributions go through Gerrit,
+not Gitea PRs — a competing contribution path is exactly what this is
+meant to prevent). Team-level permissions alone don't cover this since
+they only restrict who can *use* a unit, not whether the unit exists on
+the repo at all — confirmed live: `engineering/replication-test` showed
+`"has_pull_requests": true` right after being auto-created despite no
+team having `repo.pulls` in its `units_map`. Disable it explicitly on
+every new project:
+
+```
+curl -u gitea-admin:ChangeMe123! -X PATCH -H 'Content-Type: application/json' \
+  -d '{"has_pull_requests": false}' \
+  http://127.0.0.1:3000/api/v1/repos/engineering/my-new-project
+```
+
 ### Change a project
 
 Project-level settings (description, ACLs, labels) live in Gerrit's

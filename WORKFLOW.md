@@ -23,7 +23,12 @@ split between the two tools, but with very different scope in each.
   there. Use Gitea's **per-unit permissions** (Code / Issues / Wiki /
   Projects / Pull Requests are separate units per repo):
   - Disable the Pull Requests unit entirely — contributions go through
-    Gerrit, not Gitea PRs.
+    Gerrit, not Gitea PRs. This is a per-repo toggle, not something team
+    permissions alone achieve: excluding `repo.pulls` from a team's
+    `units_map` only restricts who can *use* the unit, not whether it
+    exists on the repo — a repo created without this explicit step still
+    shows Pull Requests enabled regardless of team permissions. See
+    ADMIN.md's "Add a project" for the exact step.
   - Set the Code unit to read-only for everyone.
   - Give the working team Write on Issues/Wiki/Projects only.
 
@@ -38,6 +43,14 @@ split between the two tools, but with very different scope in each.
   unit-based model), since the tools model permissions differently — but
   membership sync becomes automatic instead of a manual duplication
   chore.
+
+  This sync isn't on the same clock in both tools, though: Gerrit
+  evaluates LDAP group membership live on every request, so a group
+  change takes effect immediately with no re-login needed. Gitea only
+  resyncs a user's team membership at their next login (or via the
+  periodic sync task) — someone moved into a new LDAP group keeps their
+  old Gitea team membership until they authenticate again. See ADMIN.md's
+  "Change a user" for how to force it.
 
 ## 2. Repo mirroring (Gerrit → Gitea, merge-only)
 

@@ -24,7 +24,6 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
 require_root
 
-BASE_DN="dc=tkos,dc=co,dc=il"
 DEV_GROUP_DN="cn=developers,ou=groups,${BASE_DN}"
 ADMIN_GROUP_DN="cn=admins,ou=groups,${BASE_DN}"
 LDAP_BIND_DN="cn=admin,${BASE_DN}"

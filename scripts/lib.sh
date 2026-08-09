@@ -4,6 +4,10 @@
 
 SCRIPT_NAME="$(basename "${BASH_SOURCE[1]:-$0}")"
 
+# Pulls in HOST_FQDN/BASE_DN so no individual script has to declare them --
+# see config.sh to point this project at a different host.
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/config.sh"
+
 log() { printf '[%s] %s\n' "$SCRIPT_NAME" "$*"; }
 die() { printf '[%s] ERROR: %s\n' "$SCRIPT_NAME" "$*" >&2; exit 1; }
 

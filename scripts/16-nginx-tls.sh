@@ -26,7 +26,6 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
 require_root
 
-HOST_FQDN="claude.tkos.co.il"
 SSL_DIR="/etc/nginx/ssl"
 CERT="$SSL_DIR/gerrit-gitea-lab.crt"
 KEY="$SSL_DIR/gerrit-gitea-lab.key"

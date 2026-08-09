@@ -3,10 +3,14 @@
 # Run as root: sudo bash 02-openldap.sh
 #
 # slapd auto-configured itself during package install with a base DN
-# derived from this host's domain (dc=tkos,dc=co,dc=il) and no usable
-# admin password. This script sets a known admin password, then loads
-# an ou=people/ou=groups tree with two test users and two groups
-# (developers, admins) that Gerrit and Gitea will both bind against.
+# derived from this host's domain and no usable admin password. This
+# script sets a known admin password, then loads an ou=people/ou=groups
+# tree with two test users and two groups (developers, admins) that
+# Gerrit and Gitea will both bind against.
+#
+# BASE_DN (from config.sh) must match what slapd actually derived for
+# THIS host -- see config.sh's own comment if this script fails with
+# "could not find mdb database entry for suffix ...".
 #
 # TEST-LAB CREDENTIALS ONLY: every account below uses the password
 # "ChangeMe123!" so the doc stays reproducible. Never reuse this
@@ -19,7 +23,6 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
 require_root
 
-BASE_DN="dc=tkos,dc=co,dc=il"
 ADMIN_DN="cn=admin,${BASE_DN}"
 TEST_PW="ChangeMe123!"
 

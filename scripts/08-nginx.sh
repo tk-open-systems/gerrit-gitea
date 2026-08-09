@@ -16,7 +16,6 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
 require_root
 
-HOST_FQDN="claude.tkos.co.il"
 SITE_FILE=/etc/nginx/sites-available/gerrit-gitea-lab.conf
 
 cat > "$SITE_FILE" <<EOF

@@ -24,7 +24,6 @@ require_root
 
 GITEA_VERSION="1.27.1"
 GITEA_SHA256="86a7ac26e7f9c9cca0f56c4fac07fff205d5fc3bca0e54af23a204f07b833bc9"
-HOST_FQDN="claude.tkos.co.il"
 EXTERNAL_PORT="8091"   # nginx will listen here and proxy to 127.0.0.1:3000
 
 # --- 1. download + verify binary (skip if already installed) ---

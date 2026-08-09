@@ -32,7 +32,6 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
 require_root
 
-BASE_DN="dc=tkos,dc=co,dc=il"
 ADMIN_DN="cn=admin,${BASE_DN}"
 OLD_PW="ChangeMe123!"
 SITE=/var/lib/gerrit

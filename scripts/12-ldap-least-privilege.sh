@@ -50,7 +50,6 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
 require_root
 
-BASE_DN="dc=tkos,dc=co,dc=il"
 ADMIN_DN="cn=admin,${BASE_DN}"
 READER_DN="cn=ldap-reader,ou=services,${BASE_DN}"
 SITE=/var/lib/gerrit

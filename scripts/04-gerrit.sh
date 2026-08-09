@@ -25,10 +25,8 @@ require_root
 
 GERRIT_VERSION="3.14.2"
 GERRIT_MD5="5f0964143e03121b5f547f29f1af91e1"
-HOST_FQDN="claude.tkos.co.il"
 EXTERNAL_PORT="8090"   # nginx will listen here and proxy to 127.0.0.1:8080
 SITE=/var/lib/gerrit
-BASE_DN="dc=tkos,dc=co,dc=il"
 LDAP_BIND_DN="cn=admin,${BASE_DN}"
 LDAP_BIND_PW="ChangeMe123!"   # test-lab only, see scripts/02-openldap.sh
 

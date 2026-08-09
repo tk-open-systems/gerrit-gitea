@@ -32,7 +32,6 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
 require_root
 
 SITE=/var/lib/gerrit
-BASE_DN="dc=tkos,dc=co,dc=il"
 ADMINS_GROUP_DN="cn=admins,ou=groups,${BASE_DN}"
 TEST_PW="ChangeMe123!"   # test-lab only, see scripts/02-openldap.sh
 GERRIT_URL="http://127.0.0.1:8080"

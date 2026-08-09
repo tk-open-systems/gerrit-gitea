@@ -26,7 +26,10 @@ submit → replicate → issue-auto-close cycle.
 - [x] `scripts/10-delete-project-plugin.sh` — enables Gerrit's
       `delete-project` plugin (bundled in the WAR, not installed by phase
       4), used by the project-deletion procedure in [ADMIN.md](ADMIN.md)
-- [ ] Production hardening (see below) — not done, this is a lab install
+- [x] `scripts/11-rotate-credentials.sh` — rotates every lab-default
+      credential; see Production Hardening below for what's done vs. not
+- [ ] Production hardening beyond credential rotation (see below) — not
+      done, this is a lab install
 - [ ] Gerrit → Gitea webhook for in-review issue visibility — deferred, see
       WORKFLOW.md's "Open items"
 
@@ -158,23 +161,50 @@ These cost real debugging time; they're recorded here so the next person
     afterward rather than trusting the HTTP status code — which is exactly
     what the fixed script now does.
 
-## Production hardening (not done here)
+## Production hardening
 
-This lab intentionally cuts corners a production install shouldn't:
+This lab intentionally cut corners a production install shouldn't. Status:
 
-- Replace every `ChangeMe123!` credential; none of them belong outside a
-  throwaway lab.
-- Point at your real corporate LDAP/OIDC directory instead of the local
-  `slapd` from `scripts/02-openldap.sh` — that script exists to make the
-  Gerrit/Gitea-side LDAP config testable, not as something to run in
-  production.
-- Put real TLS + a real domain in front of both services (nginx already
-  does the reverse-proxy plumbing; it just needs a cert and `:443`) instead
-  of the `:8090`/`:8091` alt-port arrangement, which exists solely because
-  this host's port `:80` was already taken.
-- Move Gerrit off H2 and Gitea off SQLite onto PostgreSQL for anything past
-  small-team scale.
-- Use a dedicated, least-privilege LDAP bind account for both Gerrit's and
-  Gitea's directory searches instead of reusing the directory admin DN.
-- Decide on the deferred items from WORKFLOW.md's "Open items" section
+- [x] **Replace every `ChangeMe123!` credential** — done, via
+  `scripts/11-rotate-credentials.sh`. Rotates the LDAP admin bind
+  password, every test user's LDAP password, Gitea's LDAP auth source
+  bind password, and Gitea's two local accounts, and re-verifies real
+  login + a full replication cycle after each stage rather than trusting
+  the update calls succeeded. Not idempotent by design (it generates new
+  random secrets every run) — see its own header comment before rerunning
+  it. **After running it, `scripts/02` through `scripts/10` can no longer
+  be blindly rerun**, since they hard-code the credential this script
+  replaces; that's expected, their job (bootstrap the lab) is already
+  done.
+- [ ] **Point at a real corporate LDAP/OIDC directory** instead of the
+  local `slapd` from `scripts/02-openldap.sh`. Can't be executed on this
+  lab host (no real directory to point at), but the change itself is
+  small and localized: `scripts/04-gerrit.sh`'s `ldap.server`/
+  `ldap.accountBase`/`ldap.groupBase`/etc. and `scripts/06-gitea-ldap.sh`'s
+  `add-ldap` flags both need to match your real directory's schema (base
+  DNs, the attribute holding group membership, whether it uses
+  `groupOfNames`/`member` like this lab or something else e.g.
+  `memberOf`), and a real least-privilege read-only bind account should
+  replace the directory admin DN both configs currently reuse (this lab
+  takes that shortcut deliberately, for simplicity — don't carry it into
+  production). Everything downstream (Gerrit ACLs bound to `ldap/<dn>`
+  groups, Gitea's group-to-team sync) is structurally identical either
+  way; only the connection details change.
+- [ ] **Put real TLS + a real domain in front of both services.** Can't be
+  executed on this lab host (no public DNS to get a real CA-signed cert
+  for — Let's Encrypt needs one). nginx already does the reverse-proxy
+  plumbing (`scripts/08-nginx.sh`); a real deployment adds a cert (Let's
+  Encrypt via `certbot`, or your org's own CA) and listens on `:443`
+  instead of `:8091`/`:8090`, which exist here solely because this host's
+  port `:80` was already taken by an unrelated Apache2. Gerrit's
+  `httpd.listenUrl` is already `proxy-http://` (trusting forwarded
+  headers from a reverse proxy), so no Gerrit-side change is needed beyond
+  updating `gerrit.canonicalWebUrl` to the real `https://` URL; Gitea
+  similarly just needs `ROOT_URL` updated in `app.ini`.
+- [ ] **Move Gerrit off H2 and Gitea off SQLite onto PostgreSQL** for
+  anything past small-team scale. Not executed here; both are drop-in
+  config changes (`database.type`/`jdbc` in `gerrit.config` and
+  `[database]` in `app.ini`) but need a real migration pass, not just a
+  config edit, since this lab's data would need exporting first.
+- [ ] Decide on the deferred items from WORKFLOW.md's "Open items" section
   (the Gerrit→Gitea webhook for in-review visibility, CI/CD placement).

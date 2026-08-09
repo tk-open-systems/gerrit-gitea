@@ -28,8 +28,11 @@ submit → replicate → issue-auto-close cycle.
       4), used by the project-deletion procedure in [ADMIN.md](ADMIN.md)
 - [x] `scripts/11-rotate-credentials.sh` — rotates every lab-default
       credential; see Production Hardening below for what's done vs. not
-- [ ] Production hardening beyond credential rotation (see below) — not
-      done, this is a lab install
+- [x] `scripts/12-ldap-least-privilege.sh` — locks down the directory's
+      previously-nonexistent ACLs and adds a dedicated read-only bind
+      account for Gerrit/Gitea
+- [ ] Production hardening beyond credential rotation and the LDAP bind
+      account (see below) — not done, this is a lab install
 - [ ] Gerrit → Gitea webhook for in-review issue visibility — deferred, see
       WORKFLOW.md's "Open items"
 
@@ -160,6 +163,28 @@ These cost real debugging time; they're recorded here so the next person
     included) on any team edit, and verify by reading the field back
     afterward rather than trusting the HTTP status code — which is exactly
     what the fixed script now does.
+12. **This directory had no explicit ACLs at all until
+    `scripts/12-ldap-least-privilege.sh`**, running on OpenLDAP's
+    compiled-in default: `userPassword` was protected, but every other
+    attribute — names, emails, group membership — was readable by a fully
+    anonymous, unauthenticated bind. Confirmed live before fixing it:
+    `ldapsearch -x` with no credentials could list who's in the `admins`
+    group. And once it *was* locked down: **Gitea's LDAP client reuses one
+    connection across the whole login flow.** It binds as the reader
+    account, searches for the user, then rebinds that same connection as
+    the logging-in user to verify their password — and the subsequent
+    group-membership search then runs with *that user's own privileges*,
+    not the reader's. Invisible under the old permissive default (everyone
+    could read everything); broke immediately once `ou=groups` was made
+    reader-only, with Gitea logging a misleading `LDAP Result Code 32 "No
+    Such Object"` (OpenLDAP's way of not confirming a restricted subtree
+    even exists, rather than a plain access-denied). Root-caused only by
+    turning on slapd's `stats` log level and watching the actual bind/
+    search sequence on the wire — config readbacks and even a raw dump of
+    Gitea's stored LDAP source from its own database looked completely
+    correct the whole time. Fix: grant any authenticated (non-anonymous)
+    bind read access to `ou=groups` specifically, not just the reader
+    account; `ou=people` stays reader-and-self-only.
 
 ## Production hardening
 
@@ -176,6 +201,16 @@ This lab intentionally cut corners a production install shouldn't. Status:
   be blindly rerun**, since they hard-code the credential this script
   replaces; that's expected, their job (bootstrap the lab) is already
   done.
+- [x] **Dedicated, least-privilege LDAP bind account** — done, via
+  `scripts/12-ldap-least-privilege.sh`. Replaced the directory admin DN
+  Gerrit/Gitea had been reusing (a deliberate shortcut during initial
+  setup, see `scripts/02-openldap.sh`) with `cn=ldap-reader`, and — since
+  the directory had no explicit ACLs at all before this, running on
+  OpenLDAP's wide-open compiled-in default — locked down anonymous access
+  too. See SYSADMIN gotcha 12 for the real discovery this took: a naive
+  reader-only ACL breaks Gitea's group sync, because Gitea's LDAP client
+  reuses one connection across the login flow and ends up running the
+  group-membership search as the logging-in user, not the reader.
 - [ ] **Point at a real corporate LDAP/OIDC directory** instead of the
   local `slapd` from `scripts/02-openldap.sh`. Can't be executed on this
   lab host (no real directory to point at), but the change itself is
@@ -184,12 +219,11 @@ This lab intentionally cut corners a production install shouldn't. Status:
   `add-ldap` flags both need to match your real directory's schema (base
   DNs, the attribute holding group membership, whether it uses
   `groupOfNames`/`member` like this lab or something else e.g.
-  `memberOf`), and a real least-privilege read-only bind account should
-  replace the directory admin DN both configs currently reuse (this lab
-  takes that shortcut deliberately, for simplicity — don't carry it into
-  production). Everything downstream (Gerrit ACLs bound to `ldap/<dn>`
-  groups, Gitea's group-to-team sync) is structurally identical either
-  way; only the connection details change.
+  `memberOf`) — the least-privilege bind account itself is already handled
+  above, just pointed at this lab's own directory rather than a real one.
+  Everything downstream (Gerrit ACLs bound to `ldap/<dn>` groups, Gitea's
+  group-to-team sync) is structurally identical either way; only the
+  connection details change.
 - [ ] **Put real TLS + a real domain in front of both services.** Can't be
   executed on this lab host (no public DNS to get a real CA-signed cert
   for — Let's Encrypt needs one). nginx already does the reverse-proxy

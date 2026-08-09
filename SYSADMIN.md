@@ -23,6 +23,9 @@ submit → replicate → issue-auto-close cycle.
 - [x] `scripts/07-replication.sh` — Gerrit → Gitea replication
 - [x] `scripts/08-nginx.sh` — reverse proxy
 - [x] `scripts/09-smoke-test.sh` — full end-to-end verification
+- [x] `scripts/10-delete-project-plugin.sh` — enables Gerrit's
+      `delete-project` plugin (bundled in the WAR, not installed by phase
+      4), used by the project-deletion procedure in [ADMIN.md](ADMIN.md)
 - [ ] Production hardening (see below) — not done, this is a lab install
 - [ ] Gerrit → Gitea webhook for in-review issue visibility — deferred, see
       WORKFLOW.md's "Open items"

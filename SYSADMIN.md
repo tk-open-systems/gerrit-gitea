@@ -87,7 +87,11 @@ TLS instead of the `:8090`/`:8091` alt-port arrangement here.
 
 Each script is self-contained, logs what it's doing, and is safe to rerun
 (see `scripts/lib.sh` for the shared idempotency/error-handling helpers).
-Run them **as root, in order**:
+Before running any of them on a *different* host than the one this was
+built on, edit `scripts/config.sh` — it's the single place `HOST_FQDN`
+(and the LDAP `BASE_DN` derived from it) are defined; every script pulls
+both in automatically via `lib.sh`, none hardcode them anymore. Run them
+**as root, in order**:
 
 ```
 sudo bash scripts/01-prereqs.sh

@@ -31,8 +31,14 @@ submit → replicate → issue-auto-close cycle.
 - [x] `scripts/12-ldap-least-privilege.sh` — locks down the directory's
       previously-nonexistent ACLs and adds a dedicated read-only bind
       account for Gerrit/Gitea
-- [ ] Production hardening beyond credential rotation and the LDAP bind
-      account (see below) — not done, this is a lab install
+- [x] `scripts/13-postgresql.sh` — installs PostgreSQL, one isolated
+      database + role per service
+- [x] `scripts/14-gerrit-postgresql.sh` — migrates Gerrit's
+      AccountPatchReviewDb off H2
+- [x] `scripts/15-gitea-postgresql.sh` — migrates Gitea off SQLite,
+      preserving all data
+- [ ] Production hardening beyond what's listed above (see below) — not
+      done, this is a lab install
 - [ ] Gerrit → Gitea webhook for in-review issue visibility — deferred, see
       WORKFLOW.md's "Open items"
 
@@ -44,6 +50,12 @@ submit → replicate → issue-auto-close cycle.
 | Gitea | 1.27.1 | `127.0.0.1:3000` (HTTP), `:2222` (SSH) | `/etc/gitea/app.ini` | `gitea` |
 | Gerrit | 3.14.2 | `127.0.0.1:8080` (HTTP), `:29418` (SSH) | `/var/lib/gerrit/etc/*.config` | `gerrit` |
 | nginx | 1.26.3 | `:8090`→Gerrit, `:8091`→Gitea | `/etc/nginx/sites-available/gerrit-gitea-lab.conf` | `nginx` |
+| PostgreSQL | 17 | `127.0.0.1:5432` | `/etc/postgresql/17/main/` | `postgresql` |
+
+Gerrit's `AccountPatchReviewDb` (file-reviewed checkboxes) lives in
+database `gerritdb`; Gitea's full application database (users, orgs,
+issues, everything) lives in `giteadb`. Each has its own login role
+(`gerrit`, `gitea`) with no access to the other's database.
 
 System users: `gerrit` (site at `/var/lib/gerrit`), `gitea` (site at
 `/var/lib/gitea`), both `--system --shell /usr/sbin/nologin`.
@@ -185,6 +197,40 @@ These cost real debugging time; they're recorded here so the next person
     correct the whole time. Fix: grant any authenticated (non-anonymous)
     bind read access to `ou=groups` specifically, not just the reader
     account; `ou=people` stays reader-and-self-only.
+13. **Gerrit's `[database]` section in `gerrit.config` is vestigial
+    ReviewDb-era config and does nothing in a NoteDb-based Gerrit like
+    this one.** Setting `database.type = postgresql` etc. was accepted
+    with no error, and Gerrit kept silently writing to the old H2 file
+    regardless. The real config key, straight from Gerrit's own bundled
+    `Documentation/config-gerrit.html` inside the WAR (there's no public
+    docs site for this) is `accountPatchReviewDb.url`, and changing it
+    requires running the `MigrateAccountPatchReviewDb` program with the
+    server *stopped*, not just a reconfigure-and-restart. Also: the
+    PostgreSQL JDBC driver isn't bundled in `gerrit.war` (H2's is) --
+    fails with `ClassNotFoundException: org.postgresql.Driver` without
+    manually downloading it into `$SITE/lib`.
+14. **Gitea's file-mode logging (`[log] MODE = file`, set in phase 3)
+    means the systemd journal only ever shows a handful of bootstrap
+    lines.** A crash-looping Gitea showed literally nothing useful in
+    `journalctl` -- no error, just silence between "Prepare to run web
+    server" and the exit. The real error is always in
+    `/var/lib/gitea/log/gitea.log`, which the journal never sees once
+    Gitea's own logger takes over.
+15. **pgloader's default SQLite→PostgreSQL migration (auto-creating the
+    target schema from SQLite's structure) is incompatible with what
+    Gitea's own ORM expects**, even though the import itself reports
+    zero errors and correct row counts. Gitea's startup schema sync then
+    gets stuck retrying an index it can't drop because a constraint
+    depends on it, forever -- a symptom of pgloader's SQLite-derived
+    index names and column types (`BIGINT` vs the `BIGSERIAL` xorm
+    expects, `TEXT` vs `VARCHAR(255)`, etc.) not matching Gitea's Go
+    structs. Fix: let Gitea build its own schema first (empty database +
+    a normal startup), then run pgloader in `create no tables, create no
+    indexes` mode -- "the schema already exists, adapt to its types,
+    load data only." Also: pgloader's CLI `--with` flag rejects a
+    comma-separated option list (parse error right at the comma) despite
+    that being the documented `.load`-file syntax; each option needs its
+    own `--with`.
 
 ## Production hardening
 
@@ -235,10 +281,12 @@ This lab intentionally cut corners a production install shouldn't. Status:
   headers from a reverse proxy), so no Gerrit-side change is needed beyond
   updating `gerrit.canonicalWebUrl` to the real `https://` URL; Gitea
   similarly just needs `ROOT_URL` updated in `app.ini`.
-- [ ] **Move Gerrit off H2 and Gitea off SQLite onto PostgreSQL** for
-  anything past small-team scale. Not executed here; both are drop-in
-  config changes (`database.type`/`jdbc` in `gerrit.config` and
-  `[database]` in `app.ini`) but need a real migration pass, not just a
-  config edit, since this lab's data would need exporting first.
+- [x] **Move Gerrit off H2 and Gitea off SQLite onto PostgreSQL** — done,
+  via `scripts/13-postgresql.sh`, `scripts/14-gerrit-postgresql.sh`, and
+  `scripts/15-gitea-postgresql.sh`. Neither turned out to be a simple
+  config-and-restart, as originally guessed in this section — see
+  gotchas 13-15 for what each actually took, including a real data
+  migration for Gitea (verified specific records survived across
+  multiple tables, not just that Gitea started).
 - [ ] Decide on the deferred items from WORKFLOW.md's "Open items" section
   (the Gerrit→Gitea webhook for in-review visibility, CI/CD placement).

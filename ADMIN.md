@@ -140,6 +140,41 @@ curl -u gitea-admin:ChangeMe123! -X PATCH -H 'Content-Type: application/json' \
   http://127.0.0.1:3000/api/v1/repos/engineering/my-new-project
 ```
 
+**A second required follow-up step**, also until automated: team
+permissions alone do **not** make Code actually read-only for every human.
+Gitea org Owners always have full admin on every org repo — that's
+inherent to being an Owner, not something `units_map` can strip — so the
+`admins` LDAP group (mapped to Owners in `scripts/06-gitea-ldap.sh`)
+retains real Code write access by default. Confirmed live: an Owner-team
+account force-pushed directly to a mirrored repo's `main`, completely
+bypassing Gerrit review, with no error. WORKFLOW.md section 2's original
+design assumed the dedicated service account made a branch-protection
+rule unnecessary ("rather than a branch-protection rule bolted on
+afterward") — that assumption didn't hold once actually tested. Add a
+branch protection rule on every new project restricting push (including
+force-push) to the `Replication` team only, with admin bypass explicitly
+blocked:
+
+```
+curl -u gitea-admin:ChangeMe123! -X POST -H 'Content-Type: application/json' \
+  -d '{
+    "rule_name": "**",
+    "enable_push": true,
+    "enable_push_whitelist": true,
+    "push_whitelist_teams": ["Replication"],
+    "enable_force_push": true,
+    "enable_force_push_allowlist": true,
+    "force_push_allowlist_teams": ["Replication"],
+    "block_admin_merge_override": true
+  }' \
+  http://127.0.0.1:3000/api/v1/repos/engineering/my-new-project/branch_protections
+```
+
+Confirmed this actually blocks an Owner-team account (including force-push,
+with the real error `Not allowed to push to protected branch`) while
+leaving the `Replication` team's own force-push (what real replication
+does) working normally.
+
 ### Change a project
 
 Project-level settings (description, ACLs, labels) live in Gerrit's

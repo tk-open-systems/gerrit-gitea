@@ -65,8 +65,17 @@ Use Gerrit's **replication plugin**, not Gitea's pull-mirror:
   "mirror only on merge" behavior without extra logic.
 - Authenticate the replication job as a dedicated service account that
   is the *only* identity with Write on the Gitea repo's Code unit. Every
-  human gets Read there — that is the read-only enforcement, rather than
-  a branch-protection rule bolted on afterward.
+  human on the **working team** gets Read there via team permissions
+  alone — but that's not the whole story for org **Owners** (the `admins`
+  LDAP group): Gitea Owners always have full admin on every org repo,
+  inherent to being an Owner and not something team/unit permissions can
+  strip. Confirmed live: an Owner-team account could force-push straight
+  to a mirrored repo, bypassing Gerrit review entirely, with team
+  permissions alone. A branch-protection rule *is* needed after all —
+  restricting push (including force-push) to the replication service
+  account's team, with admin bypass explicitly blocked — see ADMIN.md's
+  "Add a project" for the exact step, confirmed to actually block Owners
+  while leaving replication itself working.
 
 ## 3. Linking Gerrit changes to Gitea issues/kanban
 

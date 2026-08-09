@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # Phase 1: packages + system users/dirs for the Gerrit/Gitea test install.
 # Run as root: sudo bash 01-prereqs.sh
-set -euxo pipefail
+# Safe to rerun: apt-get install and useradd/install -d are all idempotent.
+set -euo pipefail
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
+require_root
 
 apt-get update
 apt-get install -y \
@@ -26,6 +29,6 @@ install -d -o gerrit -g gerrit -m 750 /var/lib/gerrit
 install -d -o gitea  -g gitea  -m 750 /var/lib/gitea
 install -d -o gitea  -g gitea  -m 750 /etc/gitea
 
-echo "OK: packages installed, users 'gerrit' and 'gitea' created."
+log "packages installed, users 'gerrit' and 'gitea' present."
 id gerrit
 id gitea

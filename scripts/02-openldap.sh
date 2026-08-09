@@ -11,7 +11,13 @@
 # TEST-LAB CREDENTIALS ONLY: every account below uses the password
 # "ChangeMe123!" so the doc stays reproducible. Never reuse this
 # password scheme outside a throwaway lab.
+#
+# Safe to rerun: the rootPW change is a replace (always succeeds), and
+# every LDAP entry is added through ldap_add_if_missing, which skips
+# entries that already exist instead of failing on "already exists".
 set -euo pipefail
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
+require_root
 
 BASE_DN="dc=tkos,dc=co,dc=il"
 ADMIN_DN="cn=admin,${BASE_DN}"
@@ -22,11 +28,8 @@ DB_DN=$(ldapsearch -Y EXTERNAL -H ldapi:/// -b cn=config \
   "(&(objectClass=olcMdbConfig)(olcSuffix=${BASE_DN}))" dn \
   2>/dev/null | awk -F': ' '/^dn:/{print $2}')
 
-if [ -z "$DB_DN" ]; then
-  echo "ERROR: could not find mdb database entry for suffix ${BASE_DN} under cn=config" >&2
-  exit 1
-fi
-echo "Found database entry: $DB_DN"
+[ -n "$DB_DN" ] || die "could not find mdb database entry for suffix ${BASE_DN} under cn=config"
+log "found database entry: $DB_DN"
 
 PW_HASH=$(slappasswd -s "$TEST_PW")
 
@@ -40,23 +43,27 @@ replace: olcRootPW
 olcRootPW: ${PW_HASH}
 EOF
 
-echo "OK: admin bind DN is now ${ADMIN_DN} (password: ${TEST_PW})"
+log "admin bind DN is now ${ADMIN_DN} (password: ${TEST_PW})"
 
 # --- 2. base structure: ou=people, ou=groups ---
-ldapadd -x -D "${ADMIN_DN}" -w "${TEST_PW}" -H ldapi:/// <<EOF
+ldap_add_if_missing "ou=people,${BASE_DN}" "$(cat <<EOF
 dn: ou=people,${BASE_DN}
 objectClass: organizationalUnit
 ou: people
+EOF
+)" "$ADMIN_DN" "$TEST_PW"
 
+ldap_add_if_missing "ou=groups,${BASE_DN}" "$(cat <<EOF
 dn: ou=groups,${BASE_DN}
 objectClass: organizationalUnit
 ou: groups
 EOF
+)" "$ADMIN_DN" "$TEST_PW"
 
 # --- 3. test users (inetOrgPerson) ---
 USER_PW_HASH=$(slappasswd -s "$TEST_PW")
 
-ldapadd -x -D "${ADMIN_DN}" -w "${TEST_PW}" -H ldapi:/// <<EOF
+ldap_add_if_missing "uid=alice,ou=people,${BASE_DN}" "$(cat <<EOF
 dn: uid=alice,ou=people,${BASE_DN}
 objectClass: inetOrgPerson
 uid: alice
@@ -64,7 +71,10 @@ cn: Alice Developer
 sn: Developer
 mail: alice@tkos.co.il
 userPassword: ${USER_PW_HASH}
+EOF
+)" "$ADMIN_DN" "$TEST_PW"
 
+ldap_add_if_missing "uid=bob,ou=people,${BASE_DN}" "$(cat <<EOF
 dn: uid=bob,ou=people,${BASE_DN}
 objectClass: inetOrgPerson
 uid: bob
@@ -72,7 +82,10 @@ cn: Bob Developer
 sn: Developer
 mail: bob@tkos.co.il
 userPassword: ${USER_PW_HASH}
+EOF
+)" "$ADMIN_DN" "$TEST_PW"
 
+ldap_add_if_missing "uid=carol,ou=people,${BASE_DN}" "$(cat <<EOF
 dn: uid=carol,ou=people,${BASE_DN}
 objectClass: inetOrgPerson
 uid: carol
@@ -81,22 +94,27 @@ sn: Admin
 mail: carol@tkos.co.il
 userPassword: ${USER_PW_HASH}
 EOF
+)" "$ADMIN_DN" "$TEST_PW"
 
 # --- 4. groups (groupOfNames, requires >=1 member) ---
-ldapadd -x -D "${ADMIN_DN}" -w "${TEST_PW}" -H ldapi:/// <<EOF
+ldap_add_if_missing "cn=developers,ou=groups,${BASE_DN}" "$(cat <<EOF
 dn: cn=developers,ou=groups,${BASE_DN}
 objectClass: groupOfNames
 cn: developers
 member: uid=alice,ou=people,${BASE_DN}
 member: uid=bob,ou=people,${BASE_DN}
+EOF
+)" "$ADMIN_DN" "$TEST_PW"
 
+ldap_add_if_missing "cn=admins,ou=groups,${BASE_DN}" "$(cat <<EOF
 dn: cn=admins,ou=groups,${BASE_DN}
 objectClass: groupOfNames
 cn: admins
 member: uid=carol,ou=people,${BASE_DN}
 EOF
+)" "$ADMIN_DN" "$TEST_PW"
 
-echo "OK: loaded ou=people, ou=groups, users alice/bob/carol, groups developers/admins."
+log "ou=people, ou=groups, users alice/bob/carol, groups developers/admins are all present."
 
 # --- 5. sanity check: bind as alice ---
 ldapwhoami -x -D "uid=alice,ou=people,${BASE_DN}" -w "${TEST_PW}" -H ldapi:///

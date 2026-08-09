@@ -83,7 +83,18 @@ Use Gerrit's **replication plugin**, not Gitea's pull-mirror:
   `Fixes org/repo#123`. Gitea parses closing keywords on any push that
   lands commits on the default branch, including pushes from the
   replication bot, so a merged Gerrit change auto-closes the linked
-  Gitea issue and moves its card on a Gitea Projects board.
+  Gitea issue — confirmed working end to end in `scripts/09-smoke-test.sh`
+  (issue closed ~12s after Gerrit submit).
+
+  **It does not, however, move the issue's card on a Gitea Projects
+  board.** Tested directly: closing an issue linked to a project-board
+  card left the card sitting in its original column, just visually
+  marked closed — Gitea 1.27.1 has no auto-move-on-close automation (no
+  such option exists anywhere in its column settings, only "Set Default"
+  for newly-added issues), unlike GitHub Projects' workflow automation.
+  If a kanban board is in use, moving cards for closed issues is a manual
+  step. Note also that Gitea has no REST API for Projects at all in this
+  version, so this can't be scripted around either.
 - Gerrit itself won't render that link, so a lightweight webhook is a
   natural next step (Gerrit event-stream → post a comment on the Gitea
   issue with the change URL/status) for visibility *during* review, not

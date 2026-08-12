@@ -9,7 +9,22 @@ SCRIPT_NAME="$(basename "${BASH_SOURCE[1]:-$0}")"
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/config.sh"
 
 log() { printf '[%s] %s\n' "$SCRIPT_NAME" "$*"; }
+warn() { printf '[%s] WARNING: %s\n' "$SCRIPT_NAME" "$*" >&2; }
 die() { printf '[%s] ERROR: %s\n' "$SCRIPT_NAME" "$*" >&2; exit 1; }
+
+# Catches the "forgot to edit config.sh for this host" mistake: HOST_FQDN
+# is only ever a value WE chose, so nothing enforces it matches reality.
+# BASE_DN mismatches are already caught hard (scripts/02-openldap.sh dies
+# if it doesn't match slapd's actual suffix), but a wrong host *label*
+# with the same domain sails through that check silently and only shows
+# up later as wrong URLs baked into gerrit.config/app.ini/nginx. Just a
+# warning, not a die: some hosts legitimately run behind a NAT/LB under a
+# public name that differs from their local hostname.
+_actual_fqdn="$(hostname -f 2>/dev/null || hostname)"
+if [ "$_actual_fqdn" != "$HOST_FQDN" ]; then
+  warn "this host's real FQDN ('hostname -f') is '${_actual_fqdn}' but scripts/config.sh has HOST_FQDN='${HOST_FQDN}' -- if that's not deliberate, fix config.sh before continuing (see SYSADMIN.md's \"Running it\")."
+fi
+unset _actual_fqdn
 
 _on_err() {
   printf '[%s] ERROR: command failed (exit %s) at line %s: %s\n' \

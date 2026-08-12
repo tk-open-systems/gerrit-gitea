@@ -83,15 +83,52 @@ TLS instead of the `:8090`/`:8091` alt-port arrangement here.
   intentional and documented everywhere it appears, purely to keep the
   scripts reproducible. Never reuse this scheme outside a throwaway lab.
 
-## Running it
+## Installing
+
+### Edit config.sh
+
+First of all, edit `scripts/config.sh` — it's the single place `HOST_FQDN`
+(and the LDAP `BASE_DN` derived from it) are defined.
+
+**Do this before running `01-prereqs.sh`, not after.** `01-prereqs.sh`
+does a noninteractive `slapd` install that derives its actual on-disk LDAP
+suffix from the machine's DNS domain *at install time*. `config.sh`'s
+`BASE_DN` is only this project's guess at that value, derived from
+`HOST_FQDN` the same way. If you change `HOST_FQDN` after `01-prereqs.sh`
+already ran, the real slapd suffix on disk won't move to match, and every
+later script would silently target the wrong `BASE_DN`. So on a new host:
+
+1. Edit `HOST_FQDN` in `scripts/config.sh` to the new host's real FQDN
+   *before running anything*.
+2. Run `01-prereqs.sh`.
+3. Verify the derived `BASE_DN` guess was actually right:
+   `ldapsearch -x -H ldap:/// -b "" -s base namingContexts`. If it
+   doesn't match, override `BASE_DN` explicitly in `config.sh` now,
+   before `02-openldap.sh`.
+4. Continue 02 → 09 as normal — nothing else to touch.
+
+Every script also self-checks this now: `lib.sh` compares `HOST_FQDN`
+against `hostname -f` and prints a `WARNING:` (not fatal -- some hosts
+legitimately run behind a NAT/LB under a public name that differs from
+their local hostname) if they don't match. It won't catch a wrong
+`BASE_DN` on its own (`02-openldap.sh`'s hard failure still does that),
+but it does catch the case that check misses: a wrong host *label* under
+the same domain, which sails through `02` silently and only shows up
+later as wrong URLs baked into `gerrit.config`/`app.ini`/nginx. If you
+see that warning, fix `config.sh` before continuing rather than pushing
+through -- see "Fixing a wrong `HOST_FQDN` after the fact" below for the
+cleanup if you already have.
+
+### Run the scripts as root
+
+Run the scripts in numerical order **as root**.
 
 Each script is self-contained, logs what it's doing, and is safe to rerun
 (see `scripts/lib.sh` for the shared idempotency/error-handling helpers).
-Before running any of them on a *different* host than the one this was
-built on, edit `scripts/config.sh` — it's the single place `HOST_FQDN`
-(and the LDAP `BASE_DN` derived from it) are defined; every script pulls
-both in automatically via `lib.sh`, none hardcode them anymore. Run them
-**as root, in order**:
+
+Every script pulls both in automatically via `lib.sh` (it sources `config.sh`
+on every invocation, so there's nothing to separately "source" yourself — editing
+the values is the only step).
 
 ```
 sudo bash scripts/01-prereqs.sh
@@ -107,6 +144,26 @@ sudo bash scripts/09-smoke-test.sh
 
 Each has a comment block at the top explaining what it does and why; read
 those rather than this doc if you need the exact commands.
+
+### Fixing a wrong `HOST_FQDN` after the fact
+
+If you already ran scripts with the wrong host label (same domain, so
+`BASE_DN`/LDAP are unaffected) before catching it:
+
+1. Fix `HOST_FQDN` in `scripts/config.sh`.
+2. `03-gitea.sh` writes `/etc/gitea/app.ini` **once** and never touches it
+   again on rerun (by design -- see gotcha 1 below), so rerunning it won't
+   pick up the fix. Edit `DOMAIN`, `ROOT_URL`, and `SSH_DOMAIN` in
+   `/etc/gitea/app.ini` by hand, then `systemctl restart gitea`.
+3. `04-gerrit.sh`'s config writes go through `git config -f`, which *does*
+   update in place on rerun: `sudo bash scripts/04-gerrit.sh` correctly
+   rewrites `canonicalWebUrl`. It won't restart Gerrit itself if already
+   active (it only logs a reminder) -- run `systemctl restart gerrit`
+   afterward.
+4. `07-replication.sh` doesn't use `HOST_FQDN` at all (it only talks to
+   `127.0.0.1` ports), so nothing to redo there.
+5. Rerun `08-nginx.sh` -- it always rewrites its site file from scratch,
+   so it just picks up the corrected value.
 
 ## Gotchas found by actually running this (not just reading docs)
 

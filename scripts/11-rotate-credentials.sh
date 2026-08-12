@@ -158,8 +158,8 @@ until [ "$GITEA_SHA" = "$GERRIT_SHA" ]; do
   i=$((i + 1))
   [ "$i" -lt 30 ] || die "replication did not pick up the new credential after 30s"
   sleep 1
-  GITEA_SHA=$(curl -fsS -u "gitea-admin:${NEW_GITEA_ADMIN_PW}" \
-    "${GITEA_URL}/api/v1/repos/${ORG}/${PROJECT}/branches/main" 2>/dev/null \
+  GITEA_SHA=$( (curl -fsS -u "gitea-admin:${NEW_GITEA_ADMIN_PW}" \
+    "${GITEA_URL}/api/v1/repos/${ORG}/${PROJECT}/branches/main" 2>/dev/null || true) \
     | python3 -c 'import json,sys
 try: print(json.load(sys.stdin)["commit"]["id"])
 except Exception: print("")')

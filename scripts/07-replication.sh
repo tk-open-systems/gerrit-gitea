@@ -242,7 +242,7 @@ until [ "$GITEA_SHA" = "$GERRIT_SHA" ]; do
   i=$((i + 1))
   [ "$i" -lt 30 ] || die "Gitea main (${GITEA_SHA:0:10}) never matched Gerrit's submitted commit (${GERRIT_SHA:0:10}) after 30s -- check: journalctl -u gerrit -n 100 --no-pager | grep -i replicat"
   sleep 1
-  GITEA_SHA=$(gitea_api "${GITEA_URL}/api/v1/repos/${ORG}/${PROJECT}/branches/main" 2>/dev/null \
+  GITEA_SHA=$( (gitea_api "${GITEA_URL}/api/v1/repos/${ORG}/${PROJECT}/branches/main" 2>/dev/null || true) \
     | python3 -c 'import json,sys
 try: print(json.load(sys.stdin)["commit"]["id"])
 except Exception: print("")')

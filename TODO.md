@@ -15,3 +15,7 @@ WORKFLOW.md's "Open items / future work":
       team (documented in WORKFLOW.md section 3, verified working in
       `scripts/09-smoke-test.sh` — this item is about team adoption, not
       more engineering).
+- [ ] Settle a retention/naming policy for old customer cycle branches
+      (documented in WORKFLOW.md section 5). Deferred until there's
+      enough real cycle history across customers to know what's worth
+      keeping.

@@ -127,9 +127,127 @@ time despite every setup script reporting success. Confirmed fixed by
 testing as alice (an actual `developers`-group account, not an admin)
 directly against steps 1 and 6 above, end to end.
 
+## 5. Customer branch delivery (Gerrit ↔ GitLab)
+
+Delivery to a customer on GitLab isn't one-directional forever: the
+customer modifies the code, and after some time we pull their changes
+back in before adding new material and delivering again. Gerrit's job
+is only to review *our own* work within each such round — there's no
+need to (and no attempt to) preserve Gerrit history *across* a
+pull-from-customer event. Each pull is treated as the start of a fresh,
+unrelated line of work, same as if it were a new project.
+
+**Model: one Gerrit branch per cycle.** A "cycle" runs from one import
+of the customer's code to the next delivery (or next import, if we
+deliver more than once before hearing back from them). Each cycle gets
+its own Gerrit branch, seeded with a single commit whose tree is an
+exact copy of whatever the customer currently has. Our own changes land
+on that branch through the normal Gerrit review flow (sections 1-2).
+When it's time to deliver, the branch's tip is squash-exported back to
+the customer, structurally scrubbed of Gerrit-internal trailers exactly
+as before. When the customer later sends more of their own changes, we
+don't try to merge them into the old cycle branch — we start an
+entirely new one, seeded fresh from their new tree. This sidesteps ever
+needing a three-way merge across histories that Gerrit and the
+customer's GitLab have no real shared ancestor for.
+
+### One-time setup per customer
+
+```sh
+git remote add customer-<name> <gitlab-url>
+git fetch customer-<name>
+git checkout -b customer-<name>-sync customer-<name>/main
+```
+
+### Start a cycle (import from the customer)
+
+```sh
+git fetch customer-<name>
+CYCLE=customer/<name>/$(date +%F)-import   # add a suffix if more than one import lands the same day
+
+git checkout --orphan "$CYCLE" customer-<name>/main
+git commit -m "Import from <name> as of $(date +%F)
+
+Baseline for this cycle's work; nothing to diff against yet, since it's
+simply what the customer currently has."
+git push gerrit HEAD:refs/heads/$CYCLE
+```
+
+Pushed directly (not through `refs/for/`) since there's nothing of
+*ours* to code-review yet — it's just "this is what the customer has
+now." Needs Gerrit's "Create Reference" access right on
+`refs/heads/customer/*`, granted to whichever maintainers run this
+procedure. Gerrit's replication refspec (`refs/heads/*:refs/heads/*`,
+section 2) picks the new branch up into Gitea automatically — no extra
+config needed there.
+
+Anyone who wants to see what the customer actually changed can diff
+this new seed commit against the *previous* cycle's final delivered
+commit (the last squash commit pushed to `customer-<name>/main`) — that
+diff is the real "what did the customer do" review, even though branch
+creation itself isn't gated on it.
+
+### Work within a cycle
+
+Normal flow, just targeting the cycle branch instead of `main`:
+`git push gerrit HEAD:refs/for/$CYCLE`, reviewed and submitted like any
+other change.
+
+### Deliver (export) a cycle
+
+Same mechanism as a single delivery: full tree replace onto the
+customer's current tip, message built from commit **subjects only** so
+`Change-Id:` and any other trailer never has a path into the customer
+repo, tracked with a `Synced-From:` trailer we mint ourselves. The only
+difference from a flat, single-branch model is that `LAST` is scoped to
+*this cycle's branch*: either the cycle's own seed commit (first
+delivery of the cycle) or the previous delivery's `Synced-From:` value
+(if delivering the same cycle more than once before the next import).
+
+```sh
+git fetch gerrit
+git fetch customer-<name>
+git checkout customer-<name>-sync
+git reset --hard customer-<name>/main
+
+NEW=$(git rev-parse gerrit/$CYCLE)
+LAST=$(git log -1 --format='%(trailers:key=Synced-From,valueonly)' customer-<name>/main)
+if [ -z "$LAST" ]; then
+  LAST=$(git rev-list --max-parents=0 "$NEW")   # this cycle's own seed commit
+fi
+
+git rm -rf --ignore-unmatch . >/dev/null
+git checkout gerrit/$CYCLE -- .
+git add -A
+
+{
+  echo "Sync internal $CYCLE as of $(git rev-parse --short "$NEW") ($(date +%F))"
+  echo
+  git log --no-merges --format='* %s' "$LAST".."$NEW"
+  echo
+  echo "Synced-From: $NEW"
+} > /tmp/customer-sync-msg.txt
+
+git commit -F /tmp/customer-sync-msg.txt
+git push customer-<name> customer-<name>-sync:main
+```
+
+### Next cycle
+
+When the customer sends more changes, go back to "Start a cycle" — a
+brand-new branch, seeded fresh, no attempt to reconcile it with the
+just-finished cycle branch. This is also how customer-made edits get
+absorbed: whatever they changed is simply part of what the next cycle's
+seed commit imports, not something silently overwritten. Old cycle
+branches are inert once delivered; delete or archive them per whatever
+retention policy the team settles on (open item, below).
+
 ## Open items / future work
 
 - Gerrit → Gitea webhook for in-review visibility on issues.
 - CI/CD placement (deferred): likely pre-merge Verified checks in
   Gerrit, with post-merge pipelines against the mirrored repo in Gitea
   for deploy/release once needed.
+- Retention/naming policy for old customer cycle branches (see section
+  5) once there's enough real cycle history to know what's worth
+  keeping.

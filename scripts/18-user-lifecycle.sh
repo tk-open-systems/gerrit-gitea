@@ -84,13 +84,13 @@ esac
 # safe to paste back even if an argument (e.g. a full name) has spaces.
 ORIG_ARGS_Q=$(printf '%q ' "$@")
 
-: "${LDAP_ADMIN_PW:?Missing LDAP_ADMIN_PW (cn=admin current password).
-Already root, no sudo:
-  LDAP_ADMIN_PW=\"...\" ${SCRIPT_NAME} ${ORIG_ARGS_Q}
-Via sudo (sudo strips plain env vars, so it goes on its command line):
-  sudo LDAP_ADMIN_PW=\"...\" ${SCRIPT_NAME} ${ORIG_ARGS_Q}
-Value: whatever scripts/11-rotate-credentials.sh last set it to, or the
-bootstrap default ChangeMe123! if that script was never run.}"
+if [ -z "${LDAP_ADMIN_PW:-}" ]; then
+  die "LDAP_ADMIN_PW is not set (cn=admin current password).
+  Get it from: scripts/11-rotate-credentials.sh printed it the last time it ran; if that script was never run, it is still the install default, ChangeMe123!
+  Then rerun this exact command with it set:
+    LDAP_ADMIN_PW=\"...\" ${SCRIPT_NAME} ${ORIG_ARGS_Q}
+  (invoking via sudo instead of already being root? put VAR=value right after the word sudo, since sudo otherwise drops plain env vars: sudo LDAP_ADMIN_PW=\"...\" ${SCRIPT_NAME} ${ORIG_ARGS_Q})"
+fi
 
 gen_pw() { openssl rand -base64 24 | tr -dc 'A-Za-z0-9' | head -c 24; echo; }
 
@@ -281,16 +281,13 @@ EOF
 
   local orig_cmd="offboard $(printf '%q' "$uid")"
   [ "$delete_entry" -eq 1 ] && orig_cmd="${orig_cmd} --delete-entry"
-  : "${GERRIT_ADMIN_PW:?Missing GERRIT_ADMIN_PW (current password for ${GERRIT_ADMIN_USER}) -- needed to also deactivate the Gerrit/Gitea accounts.
-Already root, no sudo:
-  GERRIT_ADMIN_PW=\"...\" GITEA_ADMIN_PW=\"...\" ${SCRIPT_NAME} ${orig_cmd}
-Via sudo (sudo strips plain env vars, so they go on its command line):
-  sudo GERRIT_ADMIN_PW=\"...\" GITEA_ADMIN_PW=\"...\" ${SCRIPT_NAME} ${orig_cmd}}"
-  : "${GITEA_ADMIN_PW:?Missing GITEA_ADMIN_PW (current password for ${GITEA_ADMIN_USER}) -- needed to also deactivate the Gerrit/Gitea accounts.
-Already root, no sudo:
-  GERRIT_ADMIN_PW=\"...\" GITEA_ADMIN_PW=\"...\" ${SCRIPT_NAME} ${orig_cmd}
-Via sudo (sudo strips plain env vars, so they go on its command line):
-  sudo GERRIT_ADMIN_PW=\"...\" GITEA_ADMIN_PW=\"...\" ${SCRIPT_NAME} ${orig_cmd}}"
+  if [ -z "${GERRIT_ADMIN_PW:-}" ] || [ -z "${GITEA_ADMIN_PW:-}" ]; then
+    die "GERRIT_ADMIN_PW and GITEA_ADMIN_PW are not set -- needed to also deactivate the Gerrit/Gitea accounts (current passwords for ${GERRIT_ADMIN_USER} and ${GITEA_ADMIN_USER}).
+  Get them from: scripts/11-rotate-credentials.sh printed them the last time it ran; if that script was never run, both are still the install default, ChangeMe123!
+  Then rerun this exact command with them set:
+    GERRIT_ADMIN_PW=\"...\" GITEA_ADMIN_PW=\"...\" ${SCRIPT_NAME} ${orig_cmd}
+  (invoking via sudo instead of already being root? put the same VAR=value pairs right after the word sudo, since sudo otherwise drops plain env vars: sudo GERRIT_ADMIN_PW=\"...\" GITEA_ADMIN_PW=\"...\" ${SCRIPT_NAME} ${orig_cmd})"
+  fi
 
   local acct_json account_id
   acct_json=$(curl -fsS -u "${GERRIT_ADMIN_USER}:${GERRIT_ADMIN_PW}" \
@@ -327,16 +324,13 @@ Via sudo (sudo strips plain env vars, so they go on its command line):
 cmd_reactivate() {
   local uid=$1
   local orig_cmd="reactivate $(printf '%q' "$uid")"
-  : "${GERRIT_ADMIN_PW:?Missing GERRIT_ADMIN_PW (current password for ${GERRIT_ADMIN_USER}).
-Already root, no sudo:
-  GERRIT_ADMIN_PW=\"...\" GITEA_ADMIN_PW=\"...\" ${SCRIPT_NAME} ${orig_cmd}
-Via sudo (sudo strips plain env vars, so they go on its command line):
-  sudo GERRIT_ADMIN_PW=\"...\" GITEA_ADMIN_PW=\"...\" ${SCRIPT_NAME} ${orig_cmd}}"
-  : "${GITEA_ADMIN_PW:?Missing GITEA_ADMIN_PW (current password for ${GITEA_ADMIN_USER}).
-Already root, no sudo:
-  GERRIT_ADMIN_PW=\"...\" GITEA_ADMIN_PW=\"...\" ${SCRIPT_NAME} ${orig_cmd}
-Via sudo (sudo strips plain env vars, so they go on its command line):
-  sudo GERRIT_ADMIN_PW=\"...\" GITEA_ADMIN_PW=\"...\" ${SCRIPT_NAME} ${orig_cmd}}"
+  if [ -z "${GERRIT_ADMIN_PW:-}" ] || [ -z "${GITEA_ADMIN_PW:-}" ]; then
+    die "GERRIT_ADMIN_PW and GITEA_ADMIN_PW are not set (current passwords for ${GERRIT_ADMIN_USER} and ${GITEA_ADMIN_USER}).
+  Get them from: scripts/11-rotate-credentials.sh printed them the last time it ran; if that script was never run, both are still the install default, ChangeMe123!
+  Then rerun this exact command with them set:
+    GERRIT_ADMIN_PW=\"...\" GITEA_ADMIN_PW=\"...\" ${SCRIPT_NAME} ${orig_cmd}
+  (invoking via sudo instead of already being root? put the same VAR=value pairs right after the word sudo, since sudo otherwise drops plain env vars: sudo GERRIT_ADMIN_PW=\"...\" GITEA_ADMIN_PW=\"...\" ${SCRIPT_NAME} ${orig_cmd})"
+  fi
 
   local acct_json account_id
   acct_json=$(curl -fsS -u "${GERRIT_ADMIN_USER}:${GERRIT_ADMIN_PW}" \

@@ -195,6 +195,37 @@ never rewrite history.
 
 ## 2. Project lifecycle
 
+### Quick checklist: setting up a new project
+
+1. `ggadmin-project add <name> ["description"]` — the only required step.
+   It creates the Gerrit project, waits for the Gitea mirror to appear,
+   and applies both required Gitea follow-ups (disables the Pull
+   Requests unit; adds the branch-protection rule blocking Owner/admin
+   force-push). See "Add a project" below for what each of those does
+   and why.
+2. **No Gerrit or Gitea UI steps are required** for a standard project.
+   Access control is inherited automatically: Gerrit ACLs come from
+   `All-Projects` (`scripts/05-gerrit-acl.sh`), and Gitea's
+   `Developers`/`Owners`/`Replication` teams are org-wide
+   (`includes_all_repositories`, `scripts/06-gitea-ldap.sh`/
+   `scripts/07-replication.sh`), so both already apply to the new repo
+   with no per-project setup.
+3. Optional, UI-only, and only if your team actually wants them — none
+   of this blocks developers from pushing to Gerrit:
+   - Gitea → repo → **Projects**: create a Kanban board for planning
+     (WORKFLOW.md sections 3-4). No REST API for this in this Gitea
+     version, so it can't be scripted.
+   - Gitea → repo → **Wiki**: seed initial docs — it's a normal
+     writable repo, not mirrored from Gerrit.
+   - Gitea → repo → **Issues → Labels**: add labels if you use them.
+4. Only if this specific project needs access different from the
+   org-wide default (rare):
+   - Gerrit side: project's **Access** tab in the Gerrit UI, or edit
+     `refs/meta/config` directly (`scripts/05-gerrit-acl.sh` is a
+     scripted example of the latter).
+   - Gitea side: repo → **Settings → Collaborators**, or add the repo
+     to another team explicitly.
+
 ### Add a project
 
 Script: `ggadmin-project add my-new-project "description"`

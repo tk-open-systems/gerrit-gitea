@@ -39,9 +39,13 @@ Neither script stores or defaults any of these — every credential below
 has to be passed in on every invocation, as an env var on the `sudo`
 command line (sudo strips plain env vars otherwise; see each script's
 header for the exact syntax, or just run the command without them once
-— the error message gives you the exact fix). All three are whatever
-`scripts/11-rotate-credentials.sh` last set them to, or still the
-install default `ChangeMe123!` if that script was never run.
+— the error message gives you the exact fix). `LDAP_ADMIN_PW` and
+`GITEA_ADMIN_PW` are whatever `scripts/11-set-service-credentials.sh
+ldap-admin` / `... gitea-admin` last set them to, or still the install
+default `ChangeMe123!` if that was never run; `GERRIT_ADMIN_PW` is
+whatever `ggadmin-user add gerrit-bot ...` or
+`ggadmin-user set-password gerrit-bot` last set it to (see "Setting up
+the Gerrit service account" below).
 
 - **`ggadmin-user add / set-password / groups / add-group /
   remove-group`** — `LDAP_ADMIN_PW` only (`cn=admin`'s password). These
@@ -70,10 +74,10 @@ where to reset one.
   entry under `ou=people` and not a member of any group. It bypasses
   every ACL by being the directory root, so it has no connection to
   group membership at all. Set at bootstrap by `scripts/02-openldap.sh`
-  (lab default `ChangeMe123!`); rotated by
-  `scripts/11-rotate-credentials.sh` via `ldapmodify -Y EXTERNAL`
-  against the `cn=config` backend over `ldapi:///` (SASL EXTERNAL auth
-  as root, not a regular LDAP bind — see that script's step 1).
+  (lab default `ChangeMe123!`); changed by
+  `scripts/11-set-service-credentials.sh ldap-admin` via
+  `ldapmodify -Y EXTERNAL` against the `cn=config` backend over
+  `ldapi:///` (SASL EXTERNAL auth as root, not a regular LDAP bind).
 
 - **`GERRIT_ADMIN_PW`** is not a Gerrit-side secret at all — it **is the
   LDAP password of whichever LDAP account `GERRIT_ADMIN_USER` names**
@@ -90,8 +94,8 @@ where to reset one.
   Gitea-only account, deliberately not LDAP-backed**
   (`scripts/03-gitea.sh`, `scripts/06-gitea-ldap.sh`) — a completely
   separate identity from LDAP, stored in Gitea's own database. Set at
-  bootstrap by `scripts/03-gitea.sh`; rotated by
-  `scripts/11-rotate-credentials.sh` via Gitea's own
+  bootstrap by `scripts/03-gitea.sh`; changed by
+  `scripts/11-set-service-credentials.sh gitea-admin` via Gitea's own
   `gitea admin user change-password` CLI, which never touches LDAP.
 
 **Connection to group membership/roles — and it's asymmetric between

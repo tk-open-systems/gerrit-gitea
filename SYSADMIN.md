@@ -26,8 +26,11 @@ submit → replicate → issue-auto-close cycle.
 - [x] `scripts/10-delete-project-plugin.sh` — enables Gerrit's
       `delete-project` plugin (bundled in the WAR, not installed by phase
       4), used by the project-deletion procedure in [ADMIN.md](ADMIN.md)
-- [x] `scripts/11-rotate-credentials.sh` — rotates every lab-default
-      credential; see Production Hardening below for what's done vs. not
+- [x] `scripts/11-set-service-credentials.sh` — sets/changes the
+      password for one or more of the non-human "special" accounts
+      (`ldap-admin`, `ldap-reader`, `gitea-admin`, `gerrit-replication`)
+      individually; see Production Hardening below for what's done vs.
+      not
 - [x] `scripts/12-ldap-least-privilege.sh` — locks down the directory's
       previously-nonexistent ACLs and adds a dedicated read-only bind
       account for Gerrit/Gitea
@@ -299,17 +302,27 @@ These cost real debugging time; they're recorded here so the next person
 
 This lab intentionally cut corners a production install shouldn't. Status:
 
-- [x] **Replace every `ChangeMe123!` credential** — done, via
-  `scripts/11-rotate-credentials.sh`. Rotates the LDAP admin bind
-  password, every test user's LDAP password, Gitea's LDAP auth source
-  bind password, and Gitea's two local accounts, and re-verifies real
-  login + a full replication cycle after each stage rather than trusting
-  the update calls succeeded. Not idempotent by design (it generates new
-  random secrets every run) — see its own header comment before rerunning
-  it. **After running it, `scripts/02` through `scripts/10` can no longer
-  be blindly rerun**, since they hard-code the credential this script
-  replaces; that's expected, their job (bootstrap the lab) is already
-  done.
+- [x] **Replace every `ChangeMe123!` credential** — done, via two
+  tools with different scopes. Non-human "special" accounts (the LDAP
+  admin bind, the `ldap-reader` search bind if `scripts/12` has been
+  run, and Gitea's two local accounts `gitea-admin`/
+  `gerrit-replication`) go through `scripts/11-set-service-credentials.sh
+  <account> [<account> ...]`, one or more at a time — it updates every
+  place each account's password is stored (Gerrit's `secure.config`/
+  `replication.config`, Gitea's LDAP auth source) and restarts whatever
+  needs it, verifying the new password actually authenticates rather
+  than trusting the update call succeeded. Real LDAP people (`carol`,
+  and any other account under `ou=people`) go through
+  `ggadmin-user set-password <uid>` instead (ADMIN.md section 1) — not
+  this script, since they're not "special" accounts. **After running
+  either against a fresh install, `scripts/02` through `scripts/10` can
+  no longer be blindly rerun**, since they hard-code the
+  `ChangeMe123!` credentials these tools replace; that's expected,
+  their job (bootstrap the lab) is already done. The lab's `alice`/
+  `bob` test users aren't "special" either, and aren't needed past
+  bootstrap — remove them once real users exist:
+  `ggadmin-user offboard alice --delete-entry` (and the same for
+  `bob`).
 - [x] **Dedicated, least-privilege LDAP bind account** — done, via
   `scripts/12-ldap-least-privilege.sh`. Replaced the directory admin DN
   Gerrit/Gitea had been reusing (a deliberate shortcut during initial

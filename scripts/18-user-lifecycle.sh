@@ -43,7 +43,11 @@
 # per ADMIN.md, nothing in Gerrit/Gitea's own history (commits,
 # reviews, issue comments) is ever touched.
 set -euo pipefail
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
+# readlink -f (not just dirname "$BASH_SOURCE") because scripts/20 installs
+# this under /usr/local/sbin as a symlink -- BASH_SOURCE gives the symlink's
+# own path, not its target, so resolving it here is what lets lib.sh/
+# config.sh still be found next to the real file in scripts/.
+source "$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)/lib.sh"
 require_root
 
 ADMIN_DN="cn=admin,${BASE_DN}"

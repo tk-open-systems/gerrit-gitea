@@ -25,6 +25,14 @@ in full since they're what the scripts actually run, and the prose
 around them (why each step exists, what surprised us) is the part a
 script can't carry — but for real operations, prefer the script.
 
+Run `sudo bash scripts/20-install-ggadmin-tools.sh` once to symlink
+them onto PATH under short names — `ggadmin-user` and
+`ggadmin-project` — so `sudo ggadmin-user offboard dave` works from
+anywhere without a `scripts/` path. That's what the rest of this file
+calls them as; before installing, substitute the full
+`scripts/18-user-lifecycle.sh` / `scripts/19-project-lifecycle.sh`
+path instead.
+
 ## 1. User lifecycle
 
 Accounts are never created directly in Gerrit or Gitea — both are pure
@@ -33,7 +41,7 @@ LDAP; Gerrit and Gitea pick them up, but **not on the same schedule**.
 
 ### Add a user
 
-Script: `scripts/18-user-lifecycle.sh add dave "Dave Developer" dave@tkos.co.il developers`
+Script: `ggadmin-user add dave "Dave Developer" dave@tkos.co.il developers`
 (generates the password, prints it once). Manually:
 
 ```
@@ -65,7 +73,7 @@ http://.../api/v1/user` (Gitea).
 
 ### Change a user (role, email, name, group membership)
 
-Scripts: `scripts/18-user-lifecycle.sh add-group|remove-group <uid> <group>`
+Scripts: `ggadmin-user add-group|remove-group <uid> <group>`
 (skip-if-already-applied), `set-password <uid>`, `groups <uid>` to list
 current membership. Manually: edit the LDAP entry or group membership
 the same way (`ldapmodify`). What
@@ -88,7 +96,7 @@ time to find, so it's worth internalizing:
 
 ### Remove / offboard a user
 
-Script: `scripts/18-user-lifecycle.sh offboard dave` (add `--delete-entry`
+Script: `ggadmin-user offboard dave` (add `--delete-entry`
 to also remove the LDAP entry, not just pull group membership) — does
 both steps below in order, including the Gerrit `is:inactive` readback
 confirmation from step 2. `reactivate dave` undoes the explicit
@@ -129,7 +137,7 @@ never rewrite history.
 
 ### Add a project
 
-Script: `scripts/19-project-lifecycle.sh add my-new-project "description"`
+Script: `ggadmin-project add my-new-project "description"`
 — creates the Gerrit project, waits for the Gitea mirror to replicate,
 and applies both required follow-up steps below. Safe to rerun to
 apply the follow-ups to a project created before this script existed.
@@ -205,7 +213,7 @@ does) working normally.
 
 ### Change a project
 
-Script: `scripts/19-project-lifecycle.sh describe my-new-project "new description" [--gitea-too]`.
+Script: `ggadmin-project describe my-new-project "new description" [--gitea-too]`.
 Project-level settings (description, ACLs,
 labels) live in Gerrit's
 `project.config`, on the special `refs/meta/config` ref — editable via
@@ -222,7 +230,7 @@ set them there too, separately.
 
 ### Delete a project
 
-Script: `scripts/19-project-lifecycle.sh delete my-new-project` — does
+Script: `ggadmin-project delete my-new-project` — does
 both steps below, in order, and skips a side that's already gone.
 Gerrit doesn't support this without the `delete-project` plugin (bundled in
 `gerrit.war` but not installed by `scripts/04-gerrit.sh` — enable it once

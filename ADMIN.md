@@ -47,9 +47,10 @@ install default `ChangeMe123!` if that script was never run.
   remove-group`** — `LDAP_ADMIN_PW` only (`cn=admin`'s password). These
   never touch Gerrit or Gitea directly, only the shared LDAP directory.
 - **`ggadmin-user offboard`** — `LDAP_ADMIN_PW`, plus `GERRIT_ADMIN_PW`
-  and `GITEA_ADMIN_PW` (current passwords for the `carol`/`gitea-admin`
-  admin accounts) to also deactivate the Gerrit/Gitea accounts, not just
-  pull LDAP group membership.
+  and `GITEA_ADMIN_PW` (current passwords for the `gerrit-bot`/
+  `gitea-admin` admin accounts — see "Setting up the Gerrit service
+  account" below for what `gerrit-bot` is) to also deactivate the
+  Gerrit/Gitea accounts, not just pull LDAP group membership.
 - **`ggadmin-user reactivate`** — `GERRIT_ADMIN_PW` and `GITEA_ADMIN_PW`.
   `LDAP_ADMIN_PW` is also required up front even though this particular
   subcommand never touches LDAP — the check runs before the script knows
@@ -57,6 +58,139 @@ install default `ChangeMe123!` if that script was never run.
 - **`ggadmin-project add / describe / delete`** — `GERRIT_ADMIN_PW` and
   `GITEA_ADMIN_PW` for all three; there's no LDAP-only path here since
   every project operation touches at least one of Gerrit or Gitea.
+
+### What these credentials are, and how they're set
+
+These three names refer to genuinely different kinds of account, not
+three peers of the same shape — worth knowing before you go looking for
+where to reset one.
+
+- **`LDAP_ADMIN_PW`** is `cn=admin`'s bind password — LDAP's own
+  directory superuser (`olcRootPW` on the config backend), not a person
+  entry under `ou=people` and not a member of any group. It bypasses
+  every ACL by being the directory root, so it has no connection to
+  group membership at all. Set at bootstrap by `scripts/02-openldap.sh`
+  (lab default `ChangeMe123!`); rotated by
+  `scripts/11-rotate-credentials.sh` via `ldapmodify -Y EXTERNAL`
+  against the `cn=config` backend over `ldapi:///` (SASL EXTERNAL auth
+  as root, not a regular LDAP bind — see that script's step 1).
+
+- **`GERRIT_ADMIN_PW`** is not a Gerrit-side secret at all — it **is the
+  LDAP password of whichever LDAP account `GERRIT_ADMIN_USER` names**
+  (default `gerrit-bot`, a dedicated service account — see "Setting up
+  the Gerrit service account" below for why). Gerrit's `auth.type=LDAP`
+  plus `auth.gitBasicAuthPolicy=LDAP` (`scripts/04-gerrit.sh`,
+  `scripts/05-gerrit-acl.sh`) means Gerrit validates REST/git-over-HTTP
+  credentials directly against LDAP bind — nothing is stored in Gerrit
+  itself to rotate independently. The only way to change it is to
+  change that account's LDAP `userPassword`
+  (`ggadmin-user set-password gerrit-bot`).
+
+- **`GITEA_ADMIN_PW`** is the password for `gitea-admin`, a **local
+  Gitea-only account, deliberately not LDAP-backed**
+  (`scripts/03-gitea.sh`, `scripts/06-gitea-ldap.sh`) — a completely
+  separate identity from LDAP, stored in Gitea's own database. Set at
+  bootstrap by `scripts/03-gitea.sh`; rotated by
+  `scripts/11-rotate-credentials.sh` via Gitea's own
+  `gitea admin user change-password` CLI, which never touches LDAP.
+
+**Connection to group membership/roles — and it's asymmetric between
+the two:**
+
+- Gerrit admin rights (`administrateServer`, the capability
+  `GERRIT_ADMIN_PW`'s holder needs for these scripts to work at all)
+  are **durably, live-derived from the LDAP `admins` group**:
+  `scripts/05-gerrit-acl.sh` adds `ldap/cn=admins,ou=groups,...`
+  straight into `All-Projects`' ACL, and Gerrit resolves `ldap/<dn>`
+  group references against LDAP on every request — no caching, no
+  re-login needed. (The very first admin grant in this lab came from a
+  separate, one-time Gerrit quirk — it auto-promotes the first account
+  it ever sees to the internal Administrators group, which is how the
+  human account `carol` originally got admin rights during bootstrap —
+  but that's bootstrap trivia, not the ongoing mechanism: anyone added
+  to `admins`, human or service account, gets the same rights the same
+  way.) Concretely: pull any account out of the `admins` LDAP group and
+  its LDAP password still authenticates fine, but every `ggadmin-*`
+  operation using it as `GERRIT_ADMIN_PW` starts failing with a
+  permission error, not a login error.
+
+- Gitea *instance* admin (what `GITEA_ADMIN_PW` grants) has **no
+  connection to LDAP or group membership at all, by design** —
+  `scripts/06-gitea-ldap.sh` says so explicitly: the LDAP-to-team
+  mapping intentionally does not grant Gitea instance admin, to keep
+  that blast radius local-only. Emptying or deleting the `admins` LDAP
+  group would not touch `gitea-admin` in any way. Separately (and easy
+  to conflate if you don't know this), any `admins`-group LDAP account
+  *also* gets Gitea **org** Owner in `engineering` through that same
+  group — full admin over that org's repos — but that's that account's
+  own LDAP password granting an org-scoped role, a different credential
+  and a different scope than `GITEA_ADMIN_PW`, and it only re-syncs at
+  that account's next Gitea login (WORKFLOW.md section 1), unlike
+  Gerrit's live lookup.
+
+### Setting up the Gerrit service account
+
+`GERRIT_ADMIN_USER` used to default to `carol` — a real person's LDAP
+login reused as the automation credential. That's fragile: it breaks
+the moment she changes her own password for unrelated reasons, or
+leaves, and "who is currently `GERRIT_ADMIN_USER`" wasn't recorded
+anywhere but tribal knowledge. `gerrit-bot` is a dedicated, non-human
+LDAP account that exists only to be `GERRIT_ADMIN_USER`; both scripts
+now default to it.
+
+It has to live under `ou=people` like a real person, not `ou=services`
+like the `ldap-reader` bind account (see "Required credentials, per
+command" above) — Gerrit's `ldap.accountPattern`
+(`scripts/04-gerrit.sh`) only recognizes `inetOrgPerson` entries under
+`ou=people` as valid accounts, so an `ou=services` entry would never be
+able to log in as a Gerrit account at all. Given that, the existing
+`ggadmin-user add` command already does everything needed — no new
+script required:
+
+```
+sudo LDAP_ADMIN_PW='...' ggadmin-user add gerrit-bot "Gerrit Service Account" gerrit-bot@tkos.co.il admins
+```
+
+This creates the LDAP entry, adds it to `admins` (the same group carol
+is in — see the trade-off note below), and prints a freshly generated
+password once; capture it. Verify it actually has Gerrit admin rights
+before relying on it:
+
+```
+curl -fsS -u gerrit-bot:'<the printed password>' http://127.0.0.1:8080/a/accounts/self/capabilities \
+  | tail -n +2 | python3 -c 'import json,sys; sys.exit(0 if json.load(sys.stdin).get("administrateServer") else 1)' \
+  && echo "gerrit-bot has administrateServer"
+```
+
+**Do not also pre-provision it in Gitea** (skip the `curl -u gerrit-bot:...
+.../api/v1/user` step section 1's "Add a user" otherwise suggests) —
+being in `admins` means it *would* become a Gitea org Owner
+the moment it ever authenticates there, which is unnecessary scope for
+an account that only ever talks to Gerrit's REST API. Leaving it
+unprovisioned in Gitea keeps that grant dormant.
+
+From here on, point the day-2 scripts at it (or rely on the new
+default):
+
+```
+sudo GERRIT_ADMIN_USER=gerrit-bot GERRIT_ADMIN_PW='...' GITEA_ADMIN_PW='...' \
+  ggadmin-project add my-new-project "some description"
+```
+
+This doesn't touch carol's own admin status — she keeps her personal
+Gerrit/Gitea admin access for her own interactive use, she's just no
+longer the identity automation depends on. Rotate `gerrit-bot`'s
+password the same way as any other user: `ggadmin-user set-password
+gerrit-bot`. Retire it the same way too, if it's ever compromised or
+no longer needed: `ggadmin-user offboard gerrit-bot`.
+
+*Why not a narrower LDAP group instead of reusing `admins`?* That was
+considered — a dedicated `cn=gerrit-admins` group wired into Gerrit's
+ACL only, so the bot never picks up the Gitea Owner side-effect at all.
+Rejected for now as more machinery than this lab needs (a live
+`All-Projects` ACL edit, another group to maintain) given the
+side-effect is dormant unless someone deliberately provisions the bot
+in Gitea too; revisit if that stops being true.
 
 ### Why isn't this in Gerrit's or Gitea's own UI?
 

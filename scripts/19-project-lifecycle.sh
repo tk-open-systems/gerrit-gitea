@@ -19,10 +19,13 @@
 #      can force-push straight past Gerrit review.
 #
 # Needs GERRIT_ADMIN_PW and GITEA_ADMIN_PW (current passwords for the
-# carol/gitea-admin admin accounts -- rotated by
-# scripts/11-rotate-credentials.sh, so there's no safe default here).
-# sudo strips the environment by default, so pass these on the sudo
-# command line (sudo still applies them under env_reset):
+# gerrit-bot/gitea-admin admin accounts -- see ADMIN.md's "Setting up
+# the Gerrit service account" for why it's gerrit-bot and not a human's
+# own login -- rotated by scripts/11-rotate-credentials.sh for
+# gitea-admin, or ggadmin-user set-password gerrit-bot for the other;
+# there's no safe default here). sudo strips the environment by
+# default, so pass these on the sudo command line (sudo still applies
+# them under env_reset):
 #
 #   sudo GERRIT_ADMIN_PW='...' GITEA_ADMIN_PW='...' \
 #     bash 19-project-lifecycle.sh add my-new-project "some description"
@@ -50,7 +53,7 @@ require_root
 
 GERRIT_URL="http://127.0.0.1:8080"
 GITEA_URL="http://127.0.0.1:3000"
-GERRIT_ADMIN_USER="${GERRIT_ADMIN_USER:-carol}"
+GERRIT_ADMIN_USER="${GERRIT_ADMIN_USER:-gerrit-bot}"
 GITEA_ADMIN_USER="${GITEA_ADMIN_USER:-gitea-admin}"
 ORG="${GITEA_ORG:-engineering}"
 REPLICATION_TEAM="${REPLICATION_TEAM:-Replication}"

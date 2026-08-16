@@ -14,9 +14,11 @@
 # Needs LDAP_ADMIN_PW always (cn=admin's current password -- rotated by
 # scripts/11-rotate-credentials.sh, so there's no safe default to fall
 # back to here). offboard/reactivate also need GERRIT_ADMIN_PW and
-# GITEA_ADMIN_PW (current passwords for the carol/gitea-admin admin
-# accounts). sudo strips the environment by default, so pass these on
-# the sudo command line (sudo still applies them under env_reset):
+# GITEA_ADMIN_PW (current passwords for the gerrit-bot/gitea-admin admin
+# accounts -- see ADMIN.md's "Setting up the Gerrit service account" for
+# why it's gerrit-bot and not a human's own login). sudo strips the
+# environment by default, so pass these on the sudo command line (sudo
+# still applies them under env_reset):
 #
 #   sudo LDAP_ADMIN_PW='...' GERRIT_ADMIN_PW='...' GITEA_ADMIN_PW='...' \
 #     bash 18-user-lifecycle.sh offboard dave
@@ -55,7 +57,7 @@ PEOPLE_BASE="ou=people,${BASE_DN}"
 GROUPS_BASE="ou=groups,${BASE_DN}"
 GERRIT_URL="http://127.0.0.1:8080"
 GITEA_URL="http://127.0.0.1:3000"
-GERRIT_ADMIN_USER="${GERRIT_ADMIN_USER:-carol}"
+GERRIT_ADMIN_USER="${GERRIT_ADMIN_USER:-gerrit-bot}"
 GITEA_ADMIN_USER="${GITEA_ADMIN_USER:-gitea-admin}"
 
 usage() {

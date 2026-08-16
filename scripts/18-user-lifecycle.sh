@@ -104,6 +104,15 @@ is_member() {
     "(member=$(user_dn "$uid"))" dn 2>/dev/null | grep -q "^dn:"
 }
 
+# groupOfNames requires at least one member attribute (schema MUST) --
+# LDAP itself rejects a delete that would empty a group ("Object class
+# violation") rather than allow it. Check for that case ourselves so we
+# can explain it instead of surfacing that cryptic error.
+group_member_count() {
+  ldap_search -b "$(group_dn "$1")" -s base "(objectClass=*)" member 2>/dev/null \
+    | grep -c "^member:" || true
+}
+
 # groups_of UID -- prints one group cn per line
 groups_of() {
   local uid=$1
@@ -211,6 +220,9 @@ cmd_remove_group() {
     log "uid=${uid} already not in '${group}', skipping"
     return 0
   fi
+  if [ "$(group_member_count "$group")" -le 1 ]; then
+    die "uid=${uid} is the last member of '${group}' -- groupOfNames requires at least one member, so LDAP would reject this (that's the 'Object class violation' you'd otherwise see). Add another member to '${group}' first, or if you want the group gone, delete its LDAP entry outright instead of emptying it."
+  fi
   ldap_modify <<EOF
 dn: $(group_dn "$group")
 changetype: modify
@@ -226,10 +238,15 @@ cmd_offboard() {
   [ "${1:-}" = "--delete-entry" ] && delete_entry=1
 
   local had_groups=0
-  local g
+  local g hint
   while IFS= read -r g; do
     [ -n "$g" ] || continue
     had_groups=1
+    if [ "$(group_member_count "$g")" -le 1 ]; then
+      hint=""
+      [ "$g" = "admins" ] && hint=" -- '${g}' is the group granting Gerrit/Gitea admin rights (ADMIN.md section 1), so this would remove the last admin"
+      die "uid=${uid} is the last member of '${g}'${hint}. groupOfNames requires at least one member, so LDAP would reject removing them (the 'Object class violation' error). Add another member to '${g}' first (${SCRIPT_NAME} add-group <other-uid> ${g}), or delete '${g}' outright if you mean for it to be gone. Note: uid=${uid} may have already been removed from other groups above before this one was hit -- rerun offboard afterward to finish the rest."
+    fi
     ldap_modify <<EOF
 dn: $(group_dn "$g")
 changetype: modify

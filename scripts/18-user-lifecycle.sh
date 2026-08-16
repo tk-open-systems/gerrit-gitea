@@ -80,7 +80,7 @@ case "${1:-}" in
   ""|-h|--help) usage ;;
 esac
 
-: "${LDAP_ADMIN_PW:?Set LDAP_ADMIN_PW to cn=admin current password (see scripts/11-rotate-credentials.sh)}"
+: "${LDAP_ADMIN_PW:?Set LDAP_ADMIN_PW to cn=admin current password (ChangeMe123! from bootstrap until rotated -- see scripts/11-rotate-credentials.sh), passed on the sudo command line since sudo strips plain env vars: sudo LDAP_ADMIN_PW=\"...\" ${SCRIPT_NAME} ...}"
 
 gen_pw() { openssl rand -base64 24 | tr -dc 'A-Za-z0-9' | head -c 24; echo; }
 
@@ -252,8 +252,8 @@ EOF
     fi
   fi
 
-  : "${GERRIT_ADMIN_PW:?Set GERRIT_ADMIN_PW (current password for ${GERRIT_ADMIN_USER}) to also deactivate the Gerrit/Gitea accounts}"
-  : "${GITEA_ADMIN_PW:?Set GITEA_ADMIN_PW (current password for ${GITEA_ADMIN_USER}) to also deactivate the Gerrit/Gitea accounts}"
+  : "${GERRIT_ADMIN_PW:?Set GERRIT_ADMIN_PW (current password for ${GERRIT_ADMIN_USER}) to also deactivate the Gerrit/Gitea accounts, passed on the sudo command line: sudo GERRIT_ADMIN_PW=\"...\" GITEA_ADMIN_PW=\"...\" ${SCRIPT_NAME} offboard ...}"
+  : "${GITEA_ADMIN_PW:?Set GITEA_ADMIN_PW (current password for ${GITEA_ADMIN_USER}) to also deactivate the Gerrit/Gitea accounts, passed on the sudo command line: sudo GERRIT_ADMIN_PW=\"...\" GITEA_ADMIN_PW=\"...\" ${SCRIPT_NAME} offboard ...}"
 
   local acct_json account_id
   acct_json=$(curl -fsS -u "${GERRIT_ADMIN_USER}:${GERRIT_ADMIN_PW}" \
@@ -289,8 +289,8 @@ EOF
 
 cmd_reactivate() {
   local uid=$1
-  : "${GERRIT_ADMIN_PW:?Set GERRIT_ADMIN_PW (current password for ${GERRIT_ADMIN_USER})}"
-  : "${GITEA_ADMIN_PW:?Set GITEA_ADMIN_PW (current password for ${GITEA_ADMIN_USER})}"
+  : "${GERRIT_ADMIN_PW:?Set GERRIT_ADMIN_PW (current password for ${GERRIT_ADMIN_USER}), passed on the sudo command line: sudo GERRIT_ADMIN_PW=\"...\" GITEA_ADMIN_PW=\"...\" ${SCRIPT_NAME} reactivate ...}"
+  : "${GITEA_ADMIN_PW:?Set GITEA_ADMIN_PW (current password for ${GITEA_ADMIN_USER}), passed on the sudo command line: sudo GERRIT_ADMIN_PW=\"...\" GITEA_ADMIN_PW=\"...\" ${SCRIPT_NAME} reactivate ...}"
 
   local acct_json account_id
   acct_json=$(curl -fsS -u "${GERRIT_ADMIN_USER}:${GERRIT_ADMIN_PW}" \

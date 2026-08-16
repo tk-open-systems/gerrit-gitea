@@ -73,8 +73,8 @@ case "${1:-}" in
   ""|-h|--help) usage ;;
 esac
 
-: "${GERRIT_ADMIN_PW:?Set GERRIT_ADMIN_PW to the current password for ${GERRIT_ADMIN_USER}}"
-: "${GITEA_ADMIN_PW:?Set GITEA_ADMIN_PW to the current password for ${GITEA_ADMIN_USER}}"
+: "${GERRIT_ADMIN_PW:?Set GERRIT_ADMIN_PW to the current password for ${GERRIT_ADMIN_USER} (ChangeMe123! from bootstrap until rotated -- see scripts/11-rotate-credentials.sh), passed on the sudo command line since sudo strips plain env vars: sudo GERRIT_ADMIN_PW=\"...\" GITEA_ADMIN_PW=\"...\" ${SCRIPT_NAME} ...}"
+: "${GITEA_ADMIN_PW:?Set GITEA_ADMIN_PW to the current password for ${GITEA_ADMIN_USER} (ChangeMe123! from bootstrap until rotated -- see scripts/11-rotate-credentials.sh), passed on the sudo command line since sudo strips plain env vars: sudo GERRIT_ADMIN_PW=\"...\" GITEA_ADMIN_PW=\"...\" ${SCRIPT_NAME} ...}"
 
 gerrit_api() { curl -fsS -u "${GERRIT_ADMIN_USER}:${GERRIT_ADMIN_PW}" "$@"; }
 gitea_api() { curl -fsS -u "${GITEA_ADMIN_USER}:${GITEA_ADMIN_PW}" "$@"; }

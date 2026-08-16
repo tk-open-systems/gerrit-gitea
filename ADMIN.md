@@ -33,6 +33,58 @@ calls them as; before installing, substitute the full
 `scripts/18-user-lifecycle.sh` / `scripts/19-project-lifecycle.sh`
 path instead.
 
+### Why isn't this in Gerrit's or Gitea's own UI?
+
+Worth asking, since it's a fair question the first time you reach for a
+script instead of a button: neither tool is missing a UI by accident,
+and the reasons split into two genuinely different categories.
+
+**User creation is deliberately absent, not overlooked.** Both Gerrit
+and Gitea are pure LDAP-auth *consumers* here (section 1 below,
+WORKFLOW.md section 1) — an account doesn't exist locally until first
+login. Neither ships a "create a user in the directory" screen because
+that would mean managing a different system's data model from inside
+an unrelated app — the same reason Gmail's admin console doesn't let
+you edit your on-prem Active Directory. That's the correct boundary,
+not a gap. What genuinely *is* missing is a single admin surface that
+spans all three systems (LDAP + Gerrit + Gitea) together, but no
+individual tool's UI could ever provide that without reaching into
+services it doesn't own — it's structural, not a product oversight.
+Notably, *deactivation* already has a UI in both products (Gerrit's
+Admin > Users, Gitea's Site Administration both have an Active/Inactive
+toggle) — `ggadmin-user offboard` isn't adding a capability neither
+tool has, it's doing the LDAP-group removal and both toggles together
+in the right order instead of three manual steps in three different
+places, and adding the Gerrit `is:inactive` readback confirmation
+neither tool's UI does for you.
+
+**Project lifecycle gaps are real product gaps, for different reasons
+per tool.** Gerrit's `delete-project` isn't in the default build's UI
+at all, and that's deliberate conservatism, not an omission: Gerrit
+treats a project's review history as closer to a permanent record than
+a typical Git host does, so destroying it is gated behind an opt-in
+plugin (`scripts/10-delete-project-plugin.sh`) rather than a one-click
+admin button — the friction is the point. Gitea, on the other hand,
+simply has no concept of an org-wide default applied to repos that
+don't exist yet. Branch protection *is* a real, fully-functional UI
+feature — you can set the exact rule `ggadmin-project add` applies by
+hand, per repo, in Settings > Branches — but there's no template a
+newly created repo inherits automatically, and push-to-create doesn't
+fully respect the instance's default-units configuration either
+(confirmed live, section 2 below). Gitea's admin UI is built around
+configuring one repo at a time in one session; it has no answer to
+"apply this policy to every repo, including future ones."
+
+The unifying reason underneath both categories: what these scripts
+actually add isn't capability either product is missing in general —
+it's enforcement of a policy specific to *this* deployment (Gerrit-only
+contribution, no competing Gitea PRs, replication-only write access,
+LDAP as the single identity source). No vendor UI can bake in a policy
+that only exists because of how *you've* composed two separate
+products together. Any team wiring up a comparably opinionated
+multi-tool setup ends up needing a scripting layer for exactly this
+reason, regardless of which specific tools they picked.
+
 ## 1. User lifecycle
 
 Accounts are never created directly in Gerrit or Gitea — both are pure

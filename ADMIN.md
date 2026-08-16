@@ -93,6 +93,14 @@ LDAP; Gerrit and Gitea pick them up, but **not on the same schedule**.
 
 ### Add a user
 
+**uid convention:** use the person's regular org username as the LDAP `uid`
+(e.g. `dave`) — Gerrit and Gitea are pure LDAP-auth consumers, so this
+becomes their login name in both systems too, one identity everywhere. Pick
+something stable, not a display name: `uid` is the RDN of the LDAP entry's
+DN (`uid=dave,ou=people,...`), so renaming it later isn't a field edit —
+it's deleting and recreating the entry (or an `ldapmodify moddn`), plus
+updating every group `member:` reference that points at the old DN.
+
 Script: `ggadmin-user add dave "Dave Developer" dave@tkos.co.il developers`
 (generates the password, prints it once). Manually:
 

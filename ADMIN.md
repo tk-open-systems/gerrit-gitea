@@ -33,6 +33,31 @@ calls them as; before installing, substitute the full
 `scripts/18-user-lifecycle.sh` / `scripts/19-project-lifecycle.sh`
 path instead.
 
+### Required credentials, per command
+
+Neither script stores or defaults any of these — every credential below
+has to be passed in on every invocation, as an env var on the `sudo`
+command line (sudo strips plain env vars otherwise; see each script's
+header for the exact syntax, or just run the command without them once
+— the error message gives you the exact fix). All three are whatever
+`scripts/11-rotate-credentials.sh` last set them to, or still the
+install default `ChangeMe123!` if that script was never run.
+
+- **`ggadmin-user add / set-password / groups / add-group /
+  remove-group`** — `LDAP_ADMIN_PW` only (`cn=admin`'s password). These
+  never touch Gerrit or Gitea directly, only the shared LDAP directory.
+- **`ggadmin-user offboard`** — `LDAP_ADMIN_PW`, plus `GERRIT_ADMIN_PW`
+  and `GITEA_ADMIN_PW` (current passwords for the `carol`/`gitea-admin`
+  admin accounts) to also deactivate the Gerrit/Gitea accounts, not just
+  pull LDAP group membership.
+- **`ggadmin-user reactivate`** — `GERRIT_ADMIN_PW` and `GITEA_ADMIN_PW`.
+  `LDAP_ADMIN_PW` is also required up front even though this particular
+  subcommand never touches LDAP — the check runs before the script knows
+  which subcommand you picked.
+- **`ggadmin-project add / describe / delete`** — `GERRIT_ADMIN_PW` and
+  `GITEA_ADMIN_PW` for all three; there's no LDAP-only path here since
+  every project operation touches at least one of Gerrit or Gitea.
+
 ### Why isn't this in Gerrit's or Gitea's own UI?
 
 Worth asking, since it's a fair question the first time you reach for a

@@ -13,6 +13,18 @@ values. LDAP operations use the regular `cn=admin` bind over `ldap://`, so
 they don't need root on the Gerrit/Gitea host at all; only the one plugin
 install below does.
 
+**Everything below is now also wrapped as scripts** —
+`scripts/18-user-lifecycle.sh` (section 1) and
+`scripts/19-project-lifecycle.sh` (section 2), run as root on the
+Gerrit/Gitea host the same way as `scripts/01-17`. They encode every
+gotcha this file documents (the Gerrit/Gitea sync asymmetry, the two
+required Gitea follow-ups on project creation, the Gerrit
+`is:inactive`-readback quirk, ...) instead of leaving it to a human to
+remember on every one-off `curl`. The commands below are still shown
+in full since they're what the scripts actually run, and the prose
+around them (why each step exists, what surprised us) is the part a
+script can't carry — but for real operations, prefer the script.
+
 ## 1. User lifecycle
 
 Accounts are never created directly in Gerrit or Gitea — both are pure
@@ -20,6 +32,9 @@ LDAP-auth consumers (WORKFLOW.md section 1). All identity changes happen in
 LDAP; Gerrit and Gitea pick them up, but **not on the same schedule**.
 
 ### Add a user
+
+Script: `scripts/18-user-lifecycle.sh add dave "Dave Developer" dave@tkos.co.il developers`
+(generates the password, prints it once). Manually:
 
 ```
 ldapadd -x -D "cn=admin,dc=tkos,dc=co,dc=il" -w 'ChangeMe123!' -H ldap://localhost <<EOF
@@ -50,7 +65,10 @@ http://.../api/v1/user` (Gitea).
 
 ### Change a user (role, email, name, group membership)
 
-Edit the LDAP entry or group membership the same way (`ldapmodify`). What
+Scripts: `scripts/18-user-lifecycle.sh add-group|remove-group <uid> <group>`
+(skip-if-already-applied), `set-password <uid>`, `groups <uid>` to list
+current membership. Manually: edit the LDAP entry or group membership
+the same way (`ldapmodify`). What
 happens next **differs by system** — this asymmetry cost real debugging
 time to find, so it's worth internalizing:
 
@@ -69,6 +87,12 @@ time to find, so it's worth internalizing:
   `Owners`) in our testing.
 
 ### Remove / offboard a user
+
+Script: `scripts/18-user-lifecycle.sh offboard dave` (add `--delete-entry`
+to also remove the LDAP entry, not just pull group membership) — does
+both steps below in order, including the Gerrit `is:inactive` readback
+confirmation from step 2. `reactivate dave` undoes the explicit
+deactivation (does not restore LDAP group membership).
 
 Two mechanisms, and they're not equivalent — for real offboarding, do
 **both**:
@@ -105,8 +129,12 @@ never rewrite history.
 
 ### Add a project
 
-Create it in Gerrit (the source of truth) — Gitea's copy takes care of
-itself:
+Script: `scripts/19-project-lifecycle.sh add my-new-project "description"`
+— creates the Gerrit project, waits for the Gitea mirror to replicate,
+and applies both required follow-up steps below. Safe to rerun to
+apply the follow-ups to a project created before this script existed.
+Manually: create it in Gerrit (the source of truth) — Gitea's copy
+takes care of itself:
 
 ```
 curl -u carol:ChangeMe123! -X PUT -H 'Content-Type: application/json' \
@@ -177,7 +205,9 @@ does) working normally.
 
 ### Change a project
 
-Project-level settings (description, ACLs, labels) live in Gerrit's
+Script: `scripts/19-project-lifecycle.sh describe my-new-project "new description" [--gitea-too]`.
+Project-level settings (description, ACLs,
+labels) live in Gerrit's
 `project.config`, on the special `refs/meta/config` ref — editable via
 `PUT /a/projects/{name}/description`, the permissions REST endpoints, or by
 cloning/editing/pushing `refs/meta/config` directly (see
@@ -192,6 +222,8 @@ set them there too, separately.
 
 ### Delete a project
 
+Script: `scripts/19-project-lifecycle.sh delete my-new-project` — does
+both steps below, in order, and skips a side that's already gone.
 Gerrit doesn't support this without the `delete-project` plugin (bundled in
 `gerrit.war` but not installed by `scripts/04-gerrit.sh` — enable it once
 via `scripts/10-delete-project-plugin.sh`). Then:

@@ -58,6 +58,28 @@ GITEA_URL="http://127.0.0.1:3000"
 GERRIT_ADMIN_USER="${GERRIT_ADMIN_USER:-carol}"
 GITEA_ADMIN_USER="${GITEA_ADMIN_USER:-gitea-admin}"
 
+usage() {
+  cat >&2 <<EOF
+Usage:
+  $SCRIPT_NAME add <uid> <full name> <email> [group ...]
+  $SCRIPT_NAME set-password <uid>
+  $SCRIPT_NAME groups <uid>
+  $SCRIPT_NAME add-group <uid> <group>
+  $SCRIPT_NAME remove-group <uid> <group>
+  $SCRIPT_NAME offboard <uid> [--delete-entry]
+  $SCRIPT_NAME reactivate <uid>
+
+See the top of this script for required environment variables.
+EOF
+  exit 1
+}
+
+# Usage must be reachable without secrets set -- check args before the
+# LDAP_ADMIN_PW requirement below, not after.
+case "${1:-}" in
+  ""|-h|--help) usage ;;
+esac
+
 : "${LDAP_ADMIN_PW:?Set LDAP_ADMIN_PW to cn=admin current password (see scripts/11-rotate-credentials.sh)}"
 
 gen_pw() { openssl rand -base64 24 | tr -dc 'A-Za-z0-9' | head -c 24; echo; }
@@ -88,22 +110,6 @@ groups_of() {
   ldap_search -b "$GROUPS_BASE" -s sub \
     "(member=$(user_dn "$uid"))" cn 2>/dev/null \
     | sed -n 's/^cn: //p'
-}
-
-usage() {
-  cat >&2 <<EOF
-Usage:
-  $SCRIPT_NAME add <uid> <full name> <email> [group ...]
-  $SCRIPT_NAME set-password <uid>
-  $SCRIPT_NAME groups <uid>
-  $SCRIPT_NAME add-group <uid> <group>
-  $SCRIPT_NAME remove-group <uid> <group>
-  $SCRIPT_NAME offboard <uid> [--delete-entry]
-  $SCRIPT_NAME reactivate <uid>
-
-See the top of this script for required environment variables.
-EOF
-  exit 1
 }
 
 cmd_add() {

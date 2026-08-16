@@ -55,6 +55,24 @@ GITEA_ADMIN_USER="${GITEA_ADMIN_USER:-gitea-admin}"
 ORG="${GITEA_ORG:-engineering}"
 REPLICATION_TEAM="${REPLICATION_TEAM:-Replication}"
 
+usage() {
+  cat >&2 <<EOF
+Usage:
+  $SCRIPT_NAME add <project> [description]
+  $SCRIPT_NAME describe <project> <description> [--gitea-too]
+  $SCRIPT_NAME delete <project>
+
+See the top of this script for required environment variables.
+EOF
+  exit 1
+}
+
+# Usage must be reachable without secrets set -- check args before the
+# GERRIT_ADMIN_PW/GITEA_ADMIN_PW requirements below, not after.
+case "${1:-}" in
+  ""|-h|--help) usage ;;
+esac
+
 : "${GERRIT_ADMIN_PW:?Set GERRIT_ADMIN_PW to the current password for ${GERRIT_ADMIN_USER}}"
 : "${GITEA_ADMIN_PW:?Set GITEA_ADMIN_PW to the current password for ${GITEA_ADMIN_USER}}"
 
@@ -67,18 +85,6 @@ gerrit_project_exists() {
 
 gitea_repo_exists() {
   gitea_api -o /dev/null "${GITEA_URL}/api/v1/repos/${ORG}/$1" 2>/dev/null
-}
-
-usage() {
-  cat >&2 <<EOF
-Usage:
-  $SCRIPT_NAME add <project> [description]
-  $SCRIPT_NAME describe <project> <description> [--gitea-too]
-  $SCRIPT_NAME delete <project>
-
-See the top of this script for required environment variables.
-EOF
-  exit 1
 }
 
 cmd_add() {

@@ -80,7 +80,17 @@ case "${1:-}" in
   ""|-h|--help) usage ;;
 esac
 
-: "${LDAP_ADMIN_PW:?Set LDAP_ADMIN_PW to cn=admin current password (ChangeMe123! from bootstrap until rotated -- see scripts/11-rotate-credentials.sh), passed on the sudo command line since sudo strips plain env vars: sudo LDAP_ADMIN_PW=\"...\" ${SCRIPT_NAME} ...}"
+# %q-quoted so the suggested fix below is the exact command actually run,
+# safe to paste back even if an argument (e.g. a full name) has spaces.
+ORIG_ARGS_Q=$(printf '%q ' "$@")
+
+: "${LDAP_ADMIN_PW:?Missing LDAP_ADMIN_PW (cn=admin current password).
+Already root, no sudo:
+  LDAP_ADMIN_PW=\"...\" ${SCRIPT_NAME} ${ORIG_ARGS_Q}
+Via sudo (sudo strips plain env vars, so it goes on its command line):
+  sudo LDAP_ADMIN_PW=\"...\" ${SCRIPT_NAME} ${ORIG_ARGS_Q}
+Value: whatever scripts/11-rotate-credentials.sh last set it to, or the
+bootstrap default ChangeMe123! if that script was never run.}"
 
 gen_pw() { openssl rand -base64 24 | tr -dc 'A-Za-z0-9' | head -c 24; echo; }
 
@@ -269,8 +279,18 @@ EOF
     fi
   fi
 
-  : "${GERRIT_ADMIN_PW:?Set GERRIT_ADMIN_PW (current password for ${GERRIT_ADMIN_USER}) to also deactivate the Gerrit/Gitea accounts, passed on the sudo command line: sudo GERRIT_ADMIN_PW=\"...\" GITEA_ADMIN_PW=\"...\" ${SCRIPT_NAME} offboard ...}"
-  : "${GITEA_ADMIN_PW:?Set GITEA_ADMIN_PW (current password for ${GITEA_ADMIN_USER}) to also deactivate the Gerrit/Gitea accounts, passed on the sudo command line: sudo GERRIT_ADMIN_PW=\"...\" GITEA_ADMIN_PW=\"...\" ${SCRIPT_NAME} offboard ...}"
+  local orig_cmd="offboard $(printf '%q' "$uid")"
+  [ "$delete_entry" -eq 1 ] && orig_cmd="${orig_cmd} --delete-entry"
+  : "${GERRIT_ADMIN_PW:?Missing GERRIT_ADMIN_PW (current password for ${GERRIT_ADMIN_USER}) -- needed to also deactivate the Gerrit/Gitea accounts.
+Already root, no sudo:
+  GERRIT_ADMIN_PW=\"...\" GITEA_ADMIN_PW=\"...\" ${SCRIPT_NAME} ${orig_cmd}
+Via sudo (sudo strips plain env vars, so they go on its command line):
+  sudo GERRIT_ADMIN_PW=\"...\" GITEA_ADMIN_PW=\"...\" ${SCRIPT_NAME} ${orig_cmd}}"
+  : "${GITEA_ADMIN_PW:?Missing GITEA_ADMIN_PW (current password for ${GITEA_ADMIN_USER}) -- needed to also deactivate the Gerrit/Gitea accounts.
+Already root, no sudo:
+  GERRIT_ADMIN_PW=\"...\" GITEA_ADMIN_PW=\"...\" ${SCRIPT_NAME} ${orig_cmd}
+Via sudo (sudo strips plain env vars, so they go on its command line):
+  sudo GERRIT_ADMIN_PW=\"...\" GITEA_ADMIN_PW=\"...\" ${SCRIPT_NAME} ${orig_cmd}}"
 
   local acct_json account_id
   acct_json=$(curl -fsS -u "${GERRIT_ADMIN_USER}:${GERRIT_ADMIN_PW}" \
@@ -306,8 +326,17 @@ EOF
 
 cmd_reactivate() {
   local uid=$1
-  : "${GERRIT_ADMIN_PW:?Set GERRIT_ADMIN_PW (current password for ${GERRIT_ADMIN_USER}), passed on the sudo command line: sudo GERRIT_ADMIN_PW=\"...\" GITEA_ADMIN_PW=\"...\" ${SCRIPT_NAME} reactivate ...}"
-  : "${GITEA_ADMIN_PW:?Set GITEA_ADMIN_PW (current password for ${GITEA_ADMIN_USER}), passed on the sudo command line: sudo GERRIT_ADMIN_PW=\"...\" GITEA_ADMIN_PW=\"...\" ${SCRIPT_NAME} reactivate ...}"
+  local orig_cmd="reactivate $(printf '%q' "$uid")"
+  : "${GERRIT_ADMIN_PW:?Missing GERRIT_ADMIN_PW (current password for ${GERRIT_ADMIN_USER}).
+Already root, no sudo:
+  GERRIT_ADMIN_PW=\"...\" GITEA_ADMIN_PW=\"...\" ${SCRIPT_NAME} ${orig_cmd}
+Via sudo (sudo strips plain env vars, so they go on its command line):
+  sudo GERRIT_ADMIN_PW=\"...\" GITEA_ADMIN_PW=\"...\" ${SCRIPT_NAME} ${orig_cmd}}"
+  : "${GITEA_ADMIN_PW:?Missing GITEA_ADMIN_PW (current password for ${GITEA_ADMIN_USER}).
+Already root, no sudo:
+  GERRIT_ADMIN_PW=\"...\" GITEA_ADMIN_PW=\"...\" ${SCRIPT_NAME} ${orig_cmd}
+Via sudo (sudo strips plain env vars, so they go on its command line):
+  sudo GERRIT_ADMIN_PW=\"...\" GITEA_ADMIN_PW=\"...\" ${SCRIPT_NAME} ${orig_cmd}}"
 
   local acct_json account_id
   acct_json=$(curl -fsS -u "${GERRIT_ADMIN_USER}:${GERRIT_ADMIN_PW}" \

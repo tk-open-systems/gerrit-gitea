@@ -73,8 +73,25 @@ case "${1:-}" in
   ""|-h|--help) usage ;;
 esac
 
-: "${GERRIT_ADMIN_PW:?Set GERRIT_ADMIN_PW to the current password for ${GERRIT_ADMIN_USER} (ChangeMe123! from bootstrap until rotated -- see scripts/11-rotate-credentials.sh), passed on the sudo command line since sudo strips plain env vars: sudo GERRIT_ADMIN_PW=\"...\" GITEA_ADMIN_PW=\"...\" ${SCRIPT_NAME} ...}"
-: "${GITEA_ADMIN_PW:?Set GITEA_ADMIN_PW to the current password for ${GITEA_ADMIN_USER} (ChangeMe123! from bootstrap until rotated -- see scripts/11-rotate-credentials.sh), passed on the sudo command line since sudo strips plain env vars: sudo GERRIT_ADMIN_PW=\"...\" GITEA_ADMIN_PW=\"...\" ${SCRIPT_NAME} ...}"
+# %q-quoted so the suggested fix below is the exact command actually run,
+# safe to paste back even if an argument (e.g. a project description)
+# has spaces or quotes in it.
+ORIG_ARGS_Q=$(printf '%q ' "$@")
+
+: "${GERRIT_ADMIN_PW:?Missing GERRIT_ADMIN_PW (current password for ${GERRIT_ADMIN_USER}).
+Already root, no sudo:
+  GERRIT_ADMIN_PW=\"...\" GITEA_ADMIN_PW=\"...\" ${SCRIPT_NAME} ${ORIG_ARGS_Q}
+Via sudo (sudo strips plain env vars, so they go on its command line):
+  sudo GERRIT_ADMIN_PW=\"...\" GITEA_ADMIN_PW=\"...\" ${SCRIPT_NAME} ${ORIG_ARGS_Q}
+Value: whatever scripts/11-rotate-credentials.sh last set it to, or the
+bootstrap default ChangeMe123! if that script was never run.}"
+: "${GITEA_ADMIN_PW:?Missing GITEA_ADMIN_PW (current password for ${GITEA_ADMIN_USER}).
+Already root, no sudo:
+  GERRIT_ADMIN_PW=\"...\" GITEA_ADMIN_PW=\"...\" ${SCRIPT_NAME} ${ORIG_ARGS_Q}
+Via sudo (sudo strips plain env vars, so they go on its command line):
+  sudo GERRIT_ADMIN_PW=\"...\" GITEA_ADMIN_PW=\"...\" ${SCRIPT_NAME} ${ORIG_ARGS_Q}
+Value: whatever scripts/11-rotate-credentials.sh last set it to, or the
+bootstrap default ChangeMe123! if that script was never run.}"
 
 gerrit_api() { curl -fsS -u "${GERRIT_ADMIN_USER}:${GERRIT_ADMIN_PW}" "$@"; }
 gitea_api() { curl -fsS -u "${GITEA_ADMIN_USER}:${GITEA_ADMIN_PW}" "$@"; }

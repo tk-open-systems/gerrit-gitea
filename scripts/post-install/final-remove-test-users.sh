@@ -1,16 +1,27 @@
 #!/usr/bin/env bash
-# The last install step: remove the lab test users (alice/bob/carol)
-# created by scripts/install/02-openldap.sh, once they're no longer
-# needed for testing -- see ADMIN.md's "Removing the lab test users"
-# for the full rationale; this script automates the procedure
-# documented there instead of leaving it to a manual walkthrough. Like
-# scripts/install/10-delete-project-plugin.sh, this is one-time setup,
-# just optional and meant to run last -- not a continuation of the
-# required 01-09 sequence.
+# The name says it: run this FINAL, after everything else in
+# scripts/post-install/ and scripts/install/ that you're going to run.
+# Removes the lab test users (alice/bob/carol) created by
+# scripts/install/02-openldap.sh, once they're no longer needed for
+# testing -- see ADMIN.md's "Removing the lab test users" for the full
+# rationale; this script automates the procedure documented there
+# instead of leaving it to a manual walkthrough.
+#
+# Why final, specifically: scripts/post-install/ldap-least-privilege.sh
+# (this script's own directory) and scripts/install/12-gerrit-postgresql.sh/
+# 13-gitea-postgresql.sh all authenticate as alice/carol as part of
+# their own verification, so any of them run after this one would
+# break on missing accounts. Naming (not a number -- nothing else in
+# scripts/post-install/ is numbered either) is what encodes that
+# ordering here instead of a runtime check: there's nothing to
+# actually detect at runtime ("did you already run the other
+# scripts?" isn't answerable from this host's state alone, since all
+# of them are optional and may legitimately never run), so a warning
+# or confirmation prompt here would just be noise on every normal run.
 #
 # Run as root:
 #   sudo LDAP_ADMIN_PW='...' GERRIT_ADMIN_PW='...' GITEA_ADMIN_PW='...' \
-#     bash 14-remove-test-users.sh
+#     bash final-remove-test-users.sh
 #
 # Prerequisite: gerrit-bot must already exist and hold Gerrit admin
 # rights (see ADMIN.md's "Setting up the Gerrit service account" --
@@ -21,17 +32,6 @@
 # isn't set up yet, this script fails on the carol step with that exact
 # explanation (from scripts/day2/user-lifecycle.sh's own offboard
 # guard), not a confusing LDAP error.
-#
-# Run this LAST, after everything else that needs alice/bob/carol
-# alive: scripts/install/12-gerrit-postgresql.sh and
-# scripts/install/13-gitea-postgresql.sh both authenticate as carol
-# (and 13 also checks alice's team membership) as part of their own
-# migration verification, so this script would break that verification
-# if run first. Same reason, if you're also running
-# scripts/post-install/ldap-least-privilege.sh: run it BEFORE this script
-# too, not after -- its own verification step logs in as alice/carol to
-# prove the new ACL lockdown works. (SYSADMIN.md's "Which ones to run,
-# and in what order" covers all of this in full.)
 #
 # Reuses scripts/day2/user-lifecycle.sh's `offboard --delete-entry`
 # for each of the three users -- same LDAP-removal + Gerrit/Gitea-
@@ -45,16 +45,14 @@
 #
 # DESTRUCTIVE, but narrowly scoped and expected: this only ever touches
 # alice/bob/carol and the developers group, never a real account. Not
-# reversible -- comparable to scripts/post-install/set-service-credentials.sh's
-# credential rotation: a one-way step towards Day-2, not something that
-# needs an interactive confirmation prompt every time (unlike
-# scripts/teardown/21-22, which affect everything, this affects three
-# specific, always-lab-only accounts). After this runs, several other
-# scripts that authenticate as carol/alice/bob (scripts/install/04-07/09/10,
-# scripts/install/12-gerrit-postgresql.sh,
-# scripts/install/13-gitea-postgresql.sh, scripts/post-install/ldap-least-privilege.sh)
-# can no longer be blindly rerun on this host -- expected, their job is
-# already done.
+# reversible, same as scripts/post-install/set-service-credentials.sh's
+# credential rotation -- a one-way step towards Day-2 (unlike
+# scripts/teardown/21-22, which affect everything and do gate on an
+# interactive confirmation, this affects three specific, always-lab-
+# only accounts). After this runs, scripts/install/04-07/09/10,
+# scripts/install/12-gerrit-postgresql.sh, 13-gitea-postgresql.sh, and
+# scripts/post-install/ldap-least-privilege.sh can no longer be blindly
+# rerun on this host -- expected, their job is already done.
 #
 # Safe to rerun: offboard is already idempotent (an already-gone user
 # is a no-op, logged not errored), and the developers group is only

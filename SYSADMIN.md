@@ -35,10 +35,6 @@ submit → replicate → issue-auto-close cycle.
       AccountPatchReviewDb off H2
 - [x] `scripts/install/13-gitea-postgresql.sh` — migrates Gitea off
       SQLite, preserving all data
-- [x] `scripts/install/14-remove-test-users.sh` — removes the lab
-      test users `alice`/`bob`/`carol` (LDAP entries + Gerrit/Gitea
-      deactivation) once they're no longer needed, and the now-empty
-      `developers` LDAP group they leave behind
 - [x] `scripts/post-install/set-service-credentials.sh` — sets/changes the
       password for one or more of the non-human "special" accounts
       (`ldap-admin`, `ldap-reader`, `gitea-admin`, `gerrit-replication`),
@@ -46,6 +42,11 @@ submit → replicate → issue-auto-close cycle.
 - [x] `scripts/post-install/ldap-least-privilege.sh` — locks down the directory's
       previously-nonexistent ACLs and adds a dedicated read-only bind
       account for Gerrit/Gitea — see "Post-install" below
+- [x] `scripts/post-install/final-remove-test-users.sh` — removes the lab
+      test users `alice`/`bob`/`carol` (LDAP entries + Gerrit/Gitea
+      deactivation) once they're no longer needed, and the now-empty
+      `developers` LDAP group they leave behind. Run this one **last**
+      (the name says so) — see "Post-install" below
 - [x] `scripts/hardening/nginx-tls.sh` — self-signed HTTPS on `:8453`/`:8454`,
       additive alongside the existing plain-HTTP `:8090`/`:8091`
 - [ ] Production hardening beyond what's listed above (see below) — not
@@ -170,7 +171,7 @@ required too outside of a disposable lab. Everything past `09`,
 across every `scripts/` subdirectory, serves a different purpose
 rather than continuing one sequence:
 
-- **`scripts/install/10` through `14`** — five more scripts left in
+- **`scripts/install/10` through `13`** — four more scripts left in
   `install/` after the required run above, all one-time setup, but not
   equally optional:
   - `10-delete-project-plugin.sh` enables the Gerrit plugin
@@ -184,13 +185,6 @@ rather than continuing one sequence:
     care about. Run `11` first and capture the `GERRIT_DB_PW`/
     `GITEA_DB_PW` it prints, then `12` and `13` (either order relative
     to each other).
-  - `14-remove-test-users.sh` removes the lab test users `alice`/
-    `bob`/`carol` once they're no longer needed — genuinely optional,
-    and must run **last**: it needs `gerrit-bot` set up first, and `12`/
-    `13` (plus `scripts/post-install/ldap-least-privilege.sh`, if you're
-    using that too) all need `alice`/`carol` still alive for their own
-    verification steps (see ADMIN.md's "Removing the lab test users"
-    and "Which ones to run, and in what order" below).
 - **`scripts/post-install/`** — closes the gap between "installed" and
   "not shipping known-insecure defaults," which `install/` deliberately
   leaves open for reproducibility (see "Every account in this lab uses
@@ -203,10 +197,18 @@ rather than continuing one sequence:
   `gitea-admin`, `gerrit-replication` are all still on it after
   `install/` alone); `ldap-least-privilege.sh` locks down the LDAP
   directory, which otherwise ships with **no ACLs at all** — anonymous
-  can read the entire `ou=people`/`ou=groups` tree. The two aren't
-  numbered relative to each other (no ordering constraint between
-  them), but both share one real dependency against
-  `scripts/install/14-remove-test-users.sh` — see "Post-install" below.
+  can read the entire `ou=people`/`ou=groups` tree. Also here:
+  `final-remove-test-users.sh`, which removes the lab test users
+  `alice`/`bob`/`carol` once they're no longer needed — genuinely
+  optional (unlike the other two), and the name says what the other two
+  scripts' filenames don't need to: run it **last**, after everything
+  else in `post-install/` and `install/` that you're going to run, since
+  `12`-`13` above and `ldap-least-privilege.sh` all need `alice`/`carol`
+  still alive for their own verification. None of the three are
+  numbered relative to each other — the ordering that matters here is
+  "these two, then this one," which the name conveys on its own, not
+  "run 1, 2, 3 in sequence" — see "Post-install" below for the full
+  reasoning and a copy-pasteable sequence.
 - **`scripts/hardening/`** — genuinely optional, deferrable extras:
   currently just `nginx-tls.sh` (self-signed HTTPS), which needs a real
   domain/CA-signed cert to matter for production and is fine to put off
@@ -381,34 +383,41 @@ These cost real debugging time; they're recorded here so the next person
 
 `install/` deliberately ships with known lab-default credentials and a
 wide-open LDAP directory, for reproducibility (see "Every account in
-this lab uses the password `ChangeMe123!`" above) — these two scripts
-close that gap. Not part of `install/` itself, since neither changes
-how the system works, only how exposed it is by default (unlike the
-PostgreSQL scripts, a real architecture decision) — but not "opt-in"
-the way "Production hardening" below is, either: skippable for a
-disposable lab, effectively required for anything real.
+this lab uses the password `ChangeMe123!`" above) — the three scripts
+here close that gap and clean up after it. Not part of `install/`
+itself, since none of them changes how the system works, only how
+exposed it is by default or which test-only accounts are still present
+(unlike the PostgreSQL scripts, a real architecture decision) — but not
+"opt-in" the way "Production hardening" below is, either: skippable for
+a disposable lab, effectively required for anything real.
 
 ### Which ones to run, and in what order
 
-The two scripts are independent of each other — no ordering constraint
-between them, which is why neither file is numbered. Both, though,
-share a dependency against `scripts/install/14-remove-test-users.sh`:
+`set-service-credentials.sh` and `ldap-least-privilege.sh` are
+independent of each other — no ordering constraint between them.
+`final-remove-test-users.sh` depends on both of the others having
+already run (if you're running them at all) — its name says so
+directly, which is why it's not just `remove-test-users.sh`: nothing
+else in `post-install/` is numbered either, but this one script's
+position genuinely isn't interchangeable with the other two, and a
+name is a lighter way to say that than a number would be for a
+two-script exception in an otherwise unordered directory.
 
-- **`ldap-least-privilege.sh` before `scripts/install/14-remove-test-users.sh`,
+- **`ldap-least-privilege.sh` before `scripts/post-install/final-remove-test-users.sh`,
   not after** — `ldap-least-privilege.sh`'s own verification step logs
   in as `alice` and `carol` to *prove* the new ACL lockdown actually
   blocks/allows the right things; if the test users are already
   deleted, it has nothing to verify with and fails. Do the LDAP
   lockdown while the test users still exist; removing them is
-  `install/`'s job, done last. (`scripts/install/12-gerrit-postgresql.sh`
+  `final-remove-test-users.sh`'s job, done last. (`scripts/install/12-gerrit-postgresql.sh`
   and `13-gitea-postgresql.sh` have this exact same constraint, for the
   same reason — see "Run the scripts as root" above.)
 
 `set-service-credentials.sh` has no ordering constraint against
-`ldap-least-privilege.sh` or anything else — run it whenever the
-credential you want to rotate exists (or use `all`).
+`ldap-least-privilege.sh` or `final-remove-test-users.sh` — run it
+whenever the credential you want to rotate exists (or use `all`).
 
-A reasonable sequence, doing both plus the final test-user cleanup:
+A reasonable sequence, doing all three:
 
 ```
 sudo LDAP_ADMIN_PW='...' ALICE_PW='...' CAROL_PW='...' \
@@ -419,12 +428,12 @@ sudo LDAP_ADMIN_PW='...' bash scripts/post-install/set-service-credentials.sh al
 # manual, not a script -- see ADMIN.md "Setting up the Gerrit service account":
 sudo LDAP_ADMIN_PW='...' ggadmin-user add gerrit-bot "Gerrit Service Account" gerrit-bot@tkos.co.il admins
 sudo LDAP_ADMIN_PW='...' GERRIT_ADMIN_PW='...' GITEA_ADMIN_PW='...' \
-  bash scripts/install/14-remove-test-users.sh
+  bash scripts/post-install/final-remove-test-users.sh
 ```
 
 (This assumes `scripts/install/11-13` -- PostgreSQL -- already ran as
 part of `install/`, since `12`/`13` share the same "before
-`14-remove-test-users.sh`" constraint above.)
+`final-remove-test-users.sh`" constraint above.)
 
 Each script's own header comment has the exact credentials it needs and
 where to get them; the status list below explains what each one does
@@ -458,7 +467,7 @@ and why, not how to sequence them.
   these tools replace; that's expected, their job (bootstrap the lab)
   is already done. The lab test users `alice`/`bob`/`carol` aren't
   "special" accounts either and shouldn't survive into Day-2, but
-  removing them is `scripts/install/14-remove-test-users.sh`'s job now
+  removing them is `scripts/post-install/final-remove-test-users.sh`'s job now
   (see "Run the scripts as root" above and ADMIN.md's "Removing the lab
   test users") — not part of this credential-rotation step, just worth
   sequencing after `ldap-least-privilege.sh` below if you're doing both
@@ -473,6 +482,15 @@ and why, not how to sequence them.
   reader-only ACL breaks Gitea's group sync, because Gitea's LDAP client
   reuses one connection across the login flow and ends up running the
   group-membership search as the logging-in user, not the reader.
+- [x] **Remove the lab test users** — done, via
+  `scripts/post-install/final-remove-test-users.sh`. `alice`/`bob`/
+  `carol` aren't "special" accounts (the bullet above), but they
+  shouldn't survive into Day-2 either; this isn't just three `offboard`
+  calls, though, since `alice`/`bob` are the only members of the
+  `developers` LDAP group and `groupOfNames` can't have zero members —
+  see ADMIN.md's "Removing the lab test users" for the full procedure
+  this script automates, including the now-empty-group cleanup and
+  what recreating it for the first real developer looks like.
 
 ## Production hardening
 

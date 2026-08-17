@@ -361,8 +361,9 @@ never rewrite history.
 
 ### Removing the lab test users (alice/bob/carol)
 
-Script: `scripts/install/14-remove-test-users.sh` — the last install
-script, meant to run once you're done testing (see SYSADMIN.md's "Run
+Script: `scripts/post-install/final-remove-test-users.sh` — the name
+says when: last, after everything else you're going to run in
+`scripts/post-install/` and `scripts/install/` (see SYSADMIN.md's "Run
 the scripts as root"). Does everything below in order (offboards all
 three with `--delete-entry`, then deletes `cn=developers` only if it's
 actually empty afterward). Needs `LDAP_ADMIN_PW`, `GERRIT_ADMIN_PW`,
@@ -370,7 +371,7 @@ and `GITEA_ADMIN_PW`, same as `ggadmin-user offboard` itself:
 
 ```
 sudo LDAP_ADMIN_PW='...' GERRIT_ADMIN_PW='...' GITEA_ADMIN_PW='...' \
-  bash scripts/install/14-remove-test-users.sh
+  bash scripts/post-install/final-remove-test-users.sh
 ```
 
 Run this LAST: `scripts/install/12-gerrit-postgresql.sh`,

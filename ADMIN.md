@@ -181,9 +181,11 @@ sudo GERRIT_ADMIN_USER=gerrit-bot GERRIT_ADMIN_PW='...' GITEA_ADMIN_PW='...' \
   ggadmin-project add my-new-project "some description"
 ```
 
-This doesn't touch carol's own admin status — she keeps her personal
-Gerrit/Gitea admin access for her own interactive use, she's just no
-longer the identity automation depends on. Rotate `gerrit-bot`'s
+This doesn't touch carol's own admin status by itself — she keeps it
+until you separately remove her, which "Removing the lab test users"
+below now recommends doing before Day-2 (she was only ever a bootstrap
+test account, not a real admin). Setting up `gerrit-bot` has no
+dependency on carol staying around either way: rotate `gerrit-bot`'s
 password the same way as any other user: `ggadmin-user set-password
 gerrit-bot`. Retire it the same way too, if it's ever compromised or
 no longer needed: `ggadmin-user offboard gerrit-bot`.
@@ -339,7 +341,7 @@ Two mechanisms, and they're not equivalent — for real offboarding, do
    LDAP-side-only change:
    ```
    # Gerrit
-   curl -u carol:ChangeMe123! -X DELETE \
+   curl -u gerrit-bot:'<GERRIT_ADMIN_PW>' -X DELETE \
      http://127.0.0.1:8080/a/accounts/<account-id>/active
 
    # Gitea
@@ -355,6 +357,81 @@ Two mechanisms, and they're not equivalent — for real offboarding, do
 Either way, **nothing is deleted** — authored commits, past code reviews,
 and issue comments all survive. That's deliberate: revoking access should
 never rewrite history.
+
+### Removing the lab test users (alice/bob/carol)
+
+`alice`/`bob`/`carol` (`scripts/02-openldap.sh`) exist purely to exercise
+LDAP groups, Gerrit ACL bootstrap, and Gitea team sync while
+`scripts/02` through `scripts/15` were being written and verified — they
+aren't real people and shouldn't still be sitting in the directory once
+this install moves into Day-2. Removing them is just the `offboard
+--delete-entry` procedure above, run against all three, but with one
+real wrinkle worth knowing before you start:
+
+**`alice` and `bob` are the *only* members of `cn=developers`.**
+`groupOfNames` requires at least one `member`, so `offboard` refuses to
+remove the second of the two (`die`s with "is the last member of
+'developers'") rather than leave the group empty — LDAP would reject it
+anyway (`objectClass violation`). Deleting both test users therefore
+means deleting the `developers` group entry too, not just the users.
+(`admins` doesn't have this problem as long as `gerrit-bot` already
+exists and is in it — see "Setting up the Gerrit service account"
+above; do that first if you haven't. `gerrit-bot` staying in `admins`
+is what makes it safe to remove `carol`, its other member.)
+
+Prerequisite: `gerrit-bot` is set up and confirmed to have
+`administrateServer` (see above). Then, in any order:
+
+```
+sudo LDAP_ADMIN_PW='...' GERRIT_ADMIN_PW='...' GITEA_ADMIN_PW='...' \
+  ggadmin-user offboard carol --delete-entry
+sudo LDAP_ADMIN_PW='...' GERRIT_ADMIN_PW='...' GITEA_ADMIN_PW='...' \
+  ggadmin-user offboard alice --delete-entry
+sudo LDAP_ADMIN_PW='...' GERRIT_ADMIN_PW='...' GITEA_ADMIN_PW='...' \
+  ggadmin-user offboard bob --delete-entry
+```
+
+Then delete the now-empty `developers` group directly (no `ggadmin-*`
+subcommand manages groups themselves, only membership):
+
+```
+ldapmodify -x -D "cn=admin,dc=tkos,dc=co,dc=il" -w '<LDAP_ADMIN_PW>' -H ldap://localhost <<EOF
+dn: cn=developers,ou=groups,dc=tkos,dc=co,dc=il
+changetype: delete
+EOF
+```
+
+`ggadmin-user add` defaults new users to the `developers` group when
+none is given, and refuses to add anyone to a group that doesn't exist
+— so onboarding the first real developer after this needs the group
+recreated first, with that person as its initial member (`groupOfNames`
+needs a member at creation time too, so this can't be a bare empty
+group waiting for one):
+
+```
+ldapmodify -x -D "cn=admin,dc=tkos,dc=co,dc=il" -w '<LDAP_ADMIN_PW>' -H ldap://localhost <<EOF
+dn: cn=developers,ou=groups,dc=tkos,dc=co,dc=il
+changetype: add
+objectClass: groupOfNames
+cn: developers
+member: uid=<first-real-developer>,ou=people,dc=tkos,dc=co,dc=il
+EOF
+```
+
+After that, `ggadmin-user add <uid> <full name> <email>` (no explicit
+group) works again as documented above.
+
+As with any offboard, nothing in Gerrit/Gitea's own history is
+touched — commits `scripts/05`/`07`/`09`/`14` authored as `carol`
+during bootstrap keep her name/email in their history forever, same as
+any other offboarded user's past work. And as SYSADMIN.md's Production
+Hardening section notes: once these three are gone, several other
+scripts stop working too, since they authenticate as `carol` —
+`scripts/04`-`07`/`09`/`10` hardcode her original `ChangeMe123!`
+password, while `scripts/12`/`14`/`15` take `CAROL_PW` as a
+parameter instead but still need her account to exist at all. Expected
+either way — their job is already done, none of them are meant to be
+rerun against this already-bootstrapped host.
 
 ## 2. Project lifecycle
 

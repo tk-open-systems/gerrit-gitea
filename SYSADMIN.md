@@ -311,18 +311,19 @@ This lab intentionally cut corners a production install shouldn't. Status:
   place each account's password is stored (Gerrit's `secure.config`/
   `replication.config`, Gitea's LDAP auth source) and restarts whatever
   needs it, verifying the new password actually authenticates rather
-  than trusting the update call succeeded. Real LDAP people (`carol`,
-  and any other account under `ou=people`) go through
-  `ggadmin-user set-password <uid>` instead (ADMIN.md section 1) — not
-  this script, since they're not "special" accounts. **After running
-  either against a fresh install, `scripts/02` through `scripts/10` can
-  no longer be blindly rerun**, since they hard-code the
-  `ChangeMe123!` credentials these tools replace; that's expected,
-  their job (bootstrap the lab) is already done. The lab's `alice`/
-  `bob` test users aren't "special" either, and aren't needed past
-  bootstrap — remove them once real users exist:
-  `ggadmin-user offboard alice --delete-entry` (and the same for
-  `bob`).
+  than trusting the update call succeeded. Real LDAP people (any real
+  named account under `ou=people`) go through `ggadmin-user
+  set-password <uid>` instead (ADMIN.md section 1) — not this script,
+  since they're not "special" accounts. **After running either against
+  a fresh install, `scripts/02` through `scripts/10` can no longer be
+  blindly rerun**, since they hard-code the `ChangeMe123!` credentials
+  these tools replace; that's expected, their job (bootstrap the lab)
+  is already done. The lab's `alice`/`bob`/`carol` test users aren't
+  "special" either, and shouldn't survive into Day-2 at all — see
+  ADMIN.md's "Removing the lab test users" (section 1) for the full
+  procedure. It's not just three `offboard` calls: `alice`/`bob` are
+  the only members of the `developers` LDAP group, so removing both
+  means deleting that group too, not just the users.
 - [x] **Dedicated, least-privilege LDAP bind account** — done, via
   `scripts/12-ldap-least-privilege.sh`. Replaced the directory admin DN
   Gerrit/Gitea had been reusing (a deliberate shortcut during initial

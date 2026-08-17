@@ -26,13 +26,16 @@ in full since they're what the scripts actually run, and the prose
 around them (why each step exists, what surprised us) is the part a
 script can't carry — but for real operations, prefer the script.
 
-Run `sudo bash scripts/day2/install-ggadmin-tools.sh` once to symlink
-them onto PATH under short names — `ggadmin-user` and
-`ggadmin-project` — so `sudo ggadmin-user offboard dave` works from
-anywhere without a `scripts/` path. That's what the rest of this file
-calls them as; before installing, substitute the full
+Run `sudo bash scripts/day2/install-ggadmin-tools.sh` to put them on
+PATH under short names — `ggadmin-user` and `ggadmin-project` — so
+`sudo ggadmin-user offboard dave` works from anywhere without a
+`scripts/` path. That's what the rest of this file calls them as;
+before installing, substitute the full
 `scripts/day2/user-lifecycle.sh` / `scripts/day2/project-lifecycle.sh`
-path instead.
+path instead. It installs a standalone copy under
+`/usr/local/lib/gerrit-gitea/`, not a symlink into this repo clone —
+run it again any time you edit these scripts (or `git pull` a change
+to them) and want that change to actually take effect on this host.
 
 ### Required credentials, per command
 

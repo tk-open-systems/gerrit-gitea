@@ -3,9 +3,11 @@
 # remove every gg-specific systemd service, binary, data/config
 # directory, LDAP entry, and PostgreSQL role/database created by
 # scripts/install, scripts/hardening, and scripts/day2's
-# customer-sync.sh/user-lifecycle.sh/project-lifecycle.sh, plus the
-# symlinks scripts/day2/install-ggadmin-tools.sh installed. Leaves the
-# underlying packages (openjdk, nginx, slapd, postgresql) installed --
+# customer-sync.sh/user-lifecycle.sh/project-lifecycle.sh, plus
+# everything scripts/day2/install-ggadmin-tools.sh installed (the
+# /usr/local/sbin symlinks and their standalone copy under
+# /usr/local/lib/gerrit-gitea). Leaves the underlying packages
+# (openjdk, nginx, slapd, postgresql) installed --
 # see scripts/teardown/22-teardown-packages.sh to purge those too, once
 # this has run.
 #
@@ -49,7 +51,8 @@ About to PERMANENTLY remove:
   - the gerritdb/giteadb PostgreSQL roles and databases, if present
   - this project's nginx site config and self-signed TLS certs
   - the gerrit/gitea system users and their home directories
-  - the ggadmin-user/ggadmin-project symlinks in /usr/local/sbin
+  - the ggadmin-user/ggadmin-project symlinks in /usr/local/sbin, and
+    their standalone copy under /usr/local/lib/gerrit-gitea
 
 Packages themselves (nginx, slapd, postgresql, openjdk) are left
 installed -- see scripts/teardown/22-teardown-packages.sh for that.
@@ -88,11 +91,15 @@ done
 systemctl daemon-reload
 systemctl reset-failed gerrit gitea 2>/dev/null || true
 
-# --- 2. ggadmin-tools symlinks (only if they're actually ours) ---
-SCRIPTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# --- 2. ggadmin-tools: the /usr/local/sbin symlinks (only if they're
+# actually ours), then their standalone copy in /usr/local/lib
+# (scripts/day2/install-ggadmin-tools.sh copies rather than symlinking
+# straight into this repo clone, precisely so it survives this clone
+# being torn down independently of that host-level install) ---
+GGADMIN_LIB_DIR=/usr/local/lib/gerrit-gitea
 for pair in "ggadmin-user:user-lifecycle.sh" "ggadmin-project:project-lifecycle.sh"; do
   name=${pair%%:*}
-  src="${SCRIPTS_DIR}/../day2/${pair##*:}"
+  src="${GGADMIN_LIB_DIR}/day2/${pair##*:}"
   target="/usr/local/sbin/${name}"
   if [ -L "$target" ] && [ "$(readlink -f "$target")" = "$(readlink -f "$src")" ]; then
     rm -f "$target"
@@ -103,6 +110,12 @@ for pair in "ggadmin-user:user-lifecycle.sh" "ggadmin-project:project-lifecycle.
     log "${target} already gone"
   fi
 done
+if [ -d "$GGADMIN_LIB_DIR" ]; then
+  rm -rf "$GGADMIN_LIB_DIR"
+  log "removed ${GGADMIN_LIB_DIR} (the ggadmin-tools standalone copy)"
+else
+  log "${GGADMIN_LIB_DIR} already gone"
+fi
 
 # --- 3. PostgreSQL roles/databases, if scripts/install/11-13 were ever run ---
 if command -v psql >/dev/null 2>&1 && systemctl is-active --quiet postgresql 2>/dev/null; then

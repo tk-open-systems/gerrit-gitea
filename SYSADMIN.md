@@ -218,9 +218,12 @@ rather than continuing one sequence:
   sequence either (hence no numbers): `customer-sync.sh` runs as
   needed, not once; `user-lifecycle.sh`/`project-lifecycle.sh` are the
   `ggadmin-user`/`ggadmin-project` admin CLIs (ADMIN.md), and
-  `install-ggadmin-tools.sh` symlinks them onto PATH — worth running
-  once if you want those commands available, but not required for the
-  install itself to work.
+  `install-ggadmin-tools.sh` puts them on PATH — worth running if you
+  want those commands available, but not required for the install
+  itself to work. It copies rather than symlinks into this repo clone,
+  so it needs rerunning after an edit or `git pull` to those two
+  scripts (or `lib.sh`/`config.sh`) to take effect — see the script's
+  own header for why.
 - **`scripts/teardown/`** — the opposite of installing, and genuinely
   sequential (`21-teardown-data.sh` before `22-teardown-packages.sh`,
   the latter refuses to run otherwise) — see "Tearing down the
@@ -552,8 +555,10 @@ reversible:
   `ou=services` tree under `BASE_DN`, the `gerritdb`/`giteadb`
   PostgreSQL roles and databases if `scripts/install/11-13` were ever
   run, this project's nginx site config and self-signed TLS certs, the
-  `gerrit`/`gitea` system users, and the `ggadmin-*` symlinks from
-  `scripts/day2/install-ggadmin-tools.sh`. Needs `LDAP_ADMIN_PW` if slapd is still running
+  `gerrit`/`gitea` system users, and everything
+  `scripts/day2/install-ggadmin-tools.sh` installed — the `ggadmin-*`
+  symlinks and their standalone copy under `/usr/local/lib/gerrit-gitea/`.
+  Needs `LDAP_ADMIN_PW` if slapd is still running
   (same credential `scripts/day2/user-lifecycle.sh` uses). Leaves the underlying
   packages installed.
 - **`scripts/teardown/22-teardown-packages.sh`** — run after the above (it

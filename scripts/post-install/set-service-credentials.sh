@@ -23,12 +23,14 @@
 # Or, to rotate every special account that currently exists in one
 # call -- ldap-admin/gitea-admin/gerrit-replication always, ldap-reader
 # too if scripts/post-install/ldap-least-privilege.sh has already been
-# run -- pass the single pseudo-account `all` instead of listing them:
+# run -- pass the single pseudo-account `all` instead of listing them,
+# or nothing at all (no arguments defaults to `all`):
 #   sudo bash set-service-credentials.sh all
+#   sudo bash set-service-credentials.sh
 # None of these three (or four) are touched by scripts/install/ on its
 # own -- a fresh install leaves every one of them at the lab default
-# ChangeMe123! by design (SYSADMIN.md: reproducibility), so `all` is
-# the single command that gets a fresh install off it.
+# ChangeMe123! by design (SYSADMIN.md: reproducibility), so `all` (or
+# no arguments) is the single command that gets a fresh install off it.
 #
 # A new password is generated per account (openssl rand) unless you
 # override it via NEW_LDAP_ADMIN_PW / NEW_LDAP_READER_PW /
@@ -64,8 +66,6 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../lib.sh"
 require_root
 
-[ $# -ge 1 ] || die "usage: $SCRIPT_NAME <account> [<account> ...] | all  -- account is one of: ldap-admin, ldap-reader, gitea-admin, gerrit-replication"
-
 SITE=/var/lib/gerrit
 APP_INI=/etc/gitea/app.ini
 GITEA=/usr/local/bin/gitea
@@ -74,9 +74,9 @@ ORG="${GITEA_ORG:-engineering}"
 ADMIN_DN="cn=admin,${BASE_DN}"
 READER_DN="cn=ldap-reader,ou=services,${BASE_DN}"
 
-# --- `all`: expand to every special account that currently exists ---
-if [ "${1:-}" = "all" ]; then
-  [ $# -eq 1 ] || die "'all' rotates every special account by itself -- don't combine it with individual account names"
+# --- no args, or `all`: expand to every special account that currently exists ---
+if [ "${1:-all}" = "all" ]; then
+  [ $# -le 1 ] || die "'all' rotates every special account by itself -- don't combine it with individual account names"
   set -- ldap-admin gitea-admin gerrit-replication
   if ldapsearch -x -H ldap://localhost -b "$READER_DN" -s base "(objectClass=*)" dn >/dev/null 2>&1; then
     set -- "$@" ldap-reader

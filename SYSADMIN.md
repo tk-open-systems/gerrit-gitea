@@ -42,6 +42,10 @@ submit → replicate → issue-auto-close cycle.
       preserving all data
 - [x] `scripts/hardening/16-nginx-tls.sh` — self-signed HTTPS on `:8453`/`:8454`,
       additive alongside the existing plain-HTTP `:8090`/`:8091`
+- [x] `scripts/hardening/17-remove-test-users.sh` — removes the lab
+      test users `alice`/`bob`/`carol` (LDAP entries + Gerrit/Gitea
+      deactivation) once they're no longer needed, and the now-empty
+      `developers` LDAP group they leave behind
 - [ ] Production hardening beyond what's listed above (see below) — not
       done, this is a lab install
 - [ ] Gerrit → Gitea webhook for in-review issue visibility — deferred, see
@@ -344,12 +348,16 @@ This lab intentionally cut corners a production install shouldn't. Status:
   a fresh install, `scripts/install/02` through `scripts/install/10`
   can no longer be blindly rerun**, since they hard-code the `ChangeMe123!` credentials
   these tools replace; that's expected, their job (bootstrap the lab)
-  is already done. The lab's `alice`/`bob`/`carol` test users aren't
-  "special" either, and shouldn't survive into Day-2 at all — see
-  ADMIN.md's "Removing the lab test users" (section 1) for the full
-  procedure. It's not just three `offboard` calls: `alice`/`bob` are
-  the only members of the `developers` LDAP group, so removing both
-  means deleting that group too, not just the users.
+  is already done.
+- [x] **Remove the lab test users** — done, via
+  `scripts/hardening/17-remove-test-users.sh`. `alice`/`bob`/`carol`
+  aren't "special" accounts either, and shouldn't survive into Day-2 at
+  all; this isn't just three `offboard` calls, though, since `alice`/
+  `bob` are the only members of the `developers` LDAP group and
+  `groupOfNames` can't have zero members — see ADMIN.md's "Removing the
+  lab test users" (section 1) for the full procedure this script
+  automates, including the now-empty-group cleanup and what recreating
+  it for the first real developer looks like.
 - [x] **Dedicated, least-privilege LDAP bind account** — done, via
   `scripts/hardening/12-ldap-least-privilege.sh`. Replaced the directory admin DN
   Gerrit/Gitea had been reusing (a deliberate shortcut during initial

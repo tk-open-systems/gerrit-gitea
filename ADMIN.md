@@ -361,6 +361,21 @@ never rewrite history.
 
 ### Removing the lab test users (alice/bob/carol)
 
+Script: `scripts/hardening/17-remove-test-users.sh` — does everything
+below in order (offboards all three with `--delete-entry`, then
+deletes `cn=developers` only if it's actually empty afterward). Needs
+`LDAP_ADMIN_PW`, `GERRIT_ADMIN_PW`, and `GITEA_ADMIN_PW`, same as
+`ggadmin-user offboard` itself:
+
+```
+sudo LDAP_ADMIN_PW='...' GERRIT_ADMIN_PW='...' GITEA_ADMIN_PW='...' \
+  bash scripts/hardening/17-remove-test-users.sh
+```
+
+The rest of this section is what that script actually runs, and why —
+read on if you want the manual version or the reasoning, otherwise the
+command above is all you need.
+
 `alice`/`bob`/`carol` (`scripts/install/02-openldap.sh`) exist purely to
 exercise LDAP groups, Gerrit ACL bootstrap, and Gitea team sync while
 the install and hardening scripts (`scripts/install/02` through

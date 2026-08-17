@@ -1,9 +1,16 @@
 #!/usr/bin/env bash
-# Production hardening: migrate Gitea off SQLite onto PostgreSQL.
-# Run as root, passing the gitea role's password from scripts/hardening/postgresql.sh:
+# Migrate Gitea off SQLite onto PostgreSQL -- part of the same design
+# decision as scripts/install/11-postgresql.sh, not optional hardening.
+# Run as root, passing the gitea role's password from scripts/install/11-postgresql.sh:
 #
 #   sudo GITEA_DB_PW='...' GITEA_ADMIN_PW='...' CAROL_PW='...' \
-#     bash gitea-postgresql.sh
+#     bash 13-gitea-postgresql.sh
+#
+# CAROL_PW is needed because verification below confirms carol can
+# still log in and checks alice's team membership survived -- so this
+# must run BEFORE scripts/install/14-remove-test-users.sh, not after
+# (same reason as scripts/hardening/ldap-least-privilege.sh; see
+# SYSADMIN.md's "Which ones to run, and in what order").
 #
 # Unlike Gerrit's H2 (which only held disposable reviewed-file
 # checkboxes), Gitea's SQLite file holds everything -- users, orgs,
@@ -61,7 +68,7 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../lib.sh"
 require_root
 
-: "${GITEA_DB_PW:?Set GITEA_DB_PW to the gitea Postgres roles password from scripts/hardening/postgresql.sh}"
+: "${GITEA_DB_PW:?Set GITEA_DB_PW to the gitea Postgres roles password from scripts/install/11-postgresql.sh}"
 : "${GITEA_ADMIN_PW:?Set GITEA_ADMIN_PW to gitea-admins current password}"
 : "${CAROL_PW:?Set CAROL_PW to carols current password}"
 

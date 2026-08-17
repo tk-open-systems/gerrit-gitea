@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
-# Production hardening: install PostgreSQL, create isolated databases
-# and least-privilege roles for Gerrit and Gitea.
-# Run as root: sudo bash postgresql.sh
+# Install PostgreSQL and create isolated databases and least-privilege
+# roles for Gerrit and Gitea -- PostgreSQL is this project's chosen
+# database backend (not an optional hardening add-on: run this and the
+# two migration scripts that follow it for any real deployment, only
+# skip them for a quick throwaway lab you don't care about).
+# Run as root: sudo bash 11-postgresql.sh
 #
 # One role per service, each owning only its own database -- neither
 # can see or connect to the other's (PUBLIC's default CONNECT grant on
@@ -72,6 +75,6 @@ cat <<SUMMARY
   gerrit role password : ${GERRIT_DB_PW}
   gitea role password  : ${GITEA_DB_PW}
 
-Nothing persists these -- pass them to scripts/hardening/gerrit-postgresql.sh and scripts/hardening/gitea-postgresql.sh (the
+Nothing persists these -- pass them to scripts/install/12-gerrit-postgresql.sh and scripts/install/13-gitea-postgresql.sh (the
 Gerrit and Gitea migration scripts) when you run them.
 SUMMARY

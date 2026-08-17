@@ -26,7 +26,16 @@ submit → replicate → issue-auto-close cycle.
 - [x] `scripts/install/10-delete-project-plugin.sh` — enables Gerrit's
       `delete-project` plugin (bundled in the WAR, not installed by phase
       4), used by the project-deletion procedure in [ADMIN.md](ADMIN.md)
-- [x] `scripts/install/11-remove-test-users.sh` — removes the lab
+- [x] `scripts/install/11-postgresql.sh` — installs PostgreSQL, one
+      isolated database + role per service. This project's chosen
+      database backend, not optional hardening -- see "Run the scripts
+      as root" below for why it's numbered here instead of in
+      `hardening/`
+- [x] `scripts/install/12-gerrit-postgresql.sh` — migrates Gerrit's
+      AccountPatchReviewDb off H2
+- [x] `scripts/install/13-gitea-postgresql.sh` — migrates Gitea off
+      SQLite, preserving all data
+- [x] `scripts/install/14-remove-test-users.sh` — removes the lab
       test users `alice`/`bob`/`carol` (LDAP entries + Gerrit/Gitea
       deactivation) once they're no longer needed, and the now-empty
       `developers` LDAP group they leave behind
@@ -38,12 +47,6 @@ submit → replicate → issue-auto-close cycle.
 - [x] `scripts/hardening/ldap-least-privilege.sh` — locks down the directory's
       previously-nonexistent ACLs and adds a dedicated read-only bind
       account for Gerrit/Gitea
-- [x] `scripts/hardening/postgresql.sh` — installs PostgreSQL, one isolated
-      database + role per service
-- [x] `scripts/hardening/gerrit-postgresql.sh` — migrates Gerrit's
-      AccountPatchReviewDb off H2
-- [x] `scripts/hardening/gitea-postgresql.sh` — migrates Gitea off SQLite,
-      preserving all data
 - [x] `scripts/hardening/nginx-tls.sh` — self-signed HTTPS on `:8453`/`:8454`,
       additive alongside the existing plain-HTTP `:8090`/`:8091`
 - [ ] Production hardening beyond what's listed above (see below) — not
@@ -78,8 +81,17 @@ TLS instead of the `:8090`/`:8091` alt-port arrangement here.
 
 - **Native install (WAR/binary + systemd), not containers.** Simplest to
   reason about on a single Debian host; no container runtime dependency.
-- **H2 (Gerrit) / SQLite (Gitea).** Fine for a lab; see "Production
-  hardening" below.
+- **H2/SQLite bootstrap, then PostgreSQL.** `scripts/install/03-gitea.sh`/
+  `04-gerrit.sh` initialize Gerrit/Gitea on H2/SQLite for a fast,
+  dependency-light first boot, but `scripts/install/11-postgresql.sh`
+  through `13-gitea-postgresql.sh` immediately migrate both onto
+  PostgreSQL — this project's actual chosen database backend, not
+  optional hardening (see "Run the scripts as root" below for why
+  they're numbered in `install/`, not `hardening/`). Neither migration
+  turned out to be a simple config-and-restart, as originally guessed
+  — see gotchas 13-15 for what each actually took, including a real
+  data migration for Gitea (verified specific records survived across
+  multiple tables, not just that Gitea started).
 - **A real, live-tested OpenLDAP directory**, not a stubbed-out identity
   layer, so the LDAP-bind auth and group-sync config in phases 4-6 are
   proven against actual LDAP traffic, not just written from memory. Base DN
@@ -149,32 +161,43 @@ sudo bash scripts/install/08-nginx.sh
 sudo bash scripts/install/09-smoke-test.sh
 ```
 
-**That's it — `09-smoke-test.sh` is the last required step**, and
-`scripts/install/` (this directory) is now fully done. It runs a full
-push → review → submit → replicate → issue-auto-close cycle, so a
-clean exit there means you have a complete, working installation.
-Everything in the other `scripts/` subdirectories is optional, and
-each one serves a different purpose rather than continuing the same
-sequence:
+**`09-smoke-test.sh` is the last unconditionally required step.** It
+runs a full push → review → submit → replicate → issue-auto-close
+cycle, so a clean exit there means you have a complete, working
+installation — on H2/SQLite. `scripts/install/` isn't quite done yet
+for a real deployment, though: `11`-`13` below move Gerrit/Gitea onto
+PostgreSQL, this project's actual chosen backend, and are effectively
+required too outside of a disposable lab. Everything past `09`,
+across every `scripts/` subdirectory, serves a different purpose
+rather than continuing one sequence:
 
-- **`scripts/install/10-delete-project-plugin.sh` and
-  `11-remove-test-users.sh`** — the two scripts left in `install/`
-  after the required run above, since both are still one-time setup
-  steps, just optional ones, meant to run last: `10` enables the
-  Gerrit plugin `ggadmin-project delete` needs (ADMIN.md section 2, skip
-  until you actually need to delete a project); `11` removes the lab
-  test users `alice`/`bob`/`carol` once they're no longer needed (see
-  ADMIN.md's "Removing the lab test users" and "Which ones to run, and
-  in what order" below — it needs `gerrit-bot` set up first, and should
-  run after `scripts/hardening/ldap-least-privilege.sh` if you're using
-  that too).
+- **`scripts/install/10` through `14`** — five more scripts left in
+  `install/` after the required run above, all one-time setup, but not
+  equally optional:
+  - `10-delete-project-plugin.sh` enables the Gerrit plugin
+    `ggadmin-project delete` needs (ADMIN.md section 2) — skip until
+    you actually need to delete a project.
+  - `11-postgresql.sh`, `12-gerrit-postgresql.sh`, and
+    `13-gitea-postgresql.sh` move Gerrit/Gitea off H2/SQLite onto
+    PostgreSQL. This is this project's chosen database backend, not an
+    optional hardening add-on — treat these three as required for any
+    real deployment, and only skip them for a disposable lab you don't
+    care about. Run `11` first and capture the `GERRIT_DB_PW`/
+    `GITEA_DB_PW` it prints, then `12` and `13` (either order relative
+    to each other).
+  - `14-remove-test-users.sh` removes the lab test users `alice`/
+    `bob`/`carol` once they're no longer needed — genuinely optional,
+    and must run **last**: it needs `gerrit-bot` set up first, and `12`/
+    `13` (plus `scripts/hardening/ldap-least-privilege.sh`, if you're
+    using that too) all need `alice`/`carol` still alive for their own
+    verification steps (see ADMIN.md's "Removing the lab test users"
+    and "Which ones to run, and in what order" below).
 - **`scripts/hardening/`** — production hardening (credential rotation,
-  LDAP least-privilege, PostgreSQL migration, self-signed TLS). Unlike
-  `install/`, these aren't one linear sequence — most are independent
-  of each other, and none are required for a lab, which is why the
+  LDAP least-privilege, self-signed TLS). Unlike `install/`, these
+  aren't one linear sequence — the three scripts here are independent
+  of each other, and none is required for a lab, which is why the
   files themselves aren't numbered. See "Production hardening" below
-  for what each one does and the couple of real ordering dependencies
-  that do exist.
+  for what each one does and its one ordering dependency.
 - **`scripts/day2/`** — ongoing/Day-2 tooling, not setup, and not a
   sequence either (hence no numbers): `customer-sync.sh` runs as
   needed, not once; `user-lifecycle.sh`/`project-lifecycle.sh` are the
@@ -349,52 +372,48 @@ everything below as opt-in, not a continuation of the install sequence.
 
 ### Which ones to run, and in what order
 
-Most of these scripts are independent of each other and can be run in
-any order, whenever you want that particular hardening step. One real
-dependency exists within `hardening/` itself, and one more against
-`scripts/install/11-remove-test-users.sh` (which moved into `install/`
-since it's still one-time setup, not an ongoing hardening concern —
-see "Run the scripts as root" above); getting either backwards either
-fails outright or quietly skips a verification step:
+The three scripts here are independent of each other — run any, all,
+or none of them, in any order, whenever you want that particular
+hardening step. None has any ordering constraint against the others,
+which is why none of the files are numbered.
 
-- **`postgresql.sh` before `gerrit-postgresql.sh`/`gitea-postgresql.sh`**
-  — the latter two need the `GERRIT_DB_PW`/`GITEA_DB_PW` that
-  `postgresql.sh` prints once when it creates the roles. Run it,
-  capture the output, then the other two (in either order relative to
-  each other).
-- **`ldap-least-privilege.sh` before `scripts/install/11-remove-test-users.sh`,
+One of the three, though, shares a dependency against
+`scripts/install/14-remove-test-users.sh` (not against the other two):
+
+- **`ldap-least-privilege.sh` before `scripts/install/14-remove-test-users.sh`,
   not after** — `ldap-least-privilege.sh`'s own verification step logs
   in as `alice` and `carol` to *prove* the new ACL lockdown actually
   blocks/allows the right things; if the test users are already
   deleted, it has nothing to verify with and fails. Do the LDAP
   lockdown while the test users still exist; removing them is
-  `install/`'s job, done last.
+  `install/`'s job, done last. (`scripts/install/12-gerrit-postgresql.sh`
+  and `13-gitea-postgresql.sh` have this exact same constraint, for the
+  same reason — see "Run the scripts as root" above; it's not repeated
+  here since those two aren't hardening scripts.)
 
-Everything else (`set-service-credentials.sh`, `nginx-tls.sh`) has no
-ordering constraint against the others — run them whenever the
-credential you want to rotate exists, or whenever you want TLS. This
-is also why none of these files are numbered, unlike `install/`: there
-is no single sequence to number them by, just the one pairwise
-dependency above plus a handful of order-independent scripts.
+`set-service-credentials.sh` has no ordering constraint against
+`nginx-tls.sh` or anything else — run it whenever the credential you
+want to rotate exists (or use `all`), and run `nginx-tls.sh` whenever
+you want TLS.
 
-A reasonable full sequence, doing everything including the final
-test-user cleanup:
+A reasonable sequence, doing both plus the final test-user cleanup:
 
 ```
-sudo bash scripts/hardening/postgresql.sh                 # prints GERRIT_DB_PW/GITEA_DB_PW
-sudo GERRIT_DB_PW='...' bash scripts/hardening/gerrit-postgresql.sh
-sudo GITEA_DB_PW='...'  bash scripts/hardening/gitea-postgresql.sh
-sudo bash scripts/hardening/nginx-tls.sh
 sudo LDAP_ADMIN_PW='...' ALICE_PW='...' CAROL_PW='...' \
   bash scripts/hardening/ldap-least-privilege.sh
 sudo LDAP_ADMIN_PW='...' bash scripts/hardening/set-service-credentials.sh all
 # ^ prints a NEW ldap-admin password -- every '...' placeholder below
 # means that new value, not the one used above.
+sudo bash scripts/hardening/nginx-tls.sh
 # manual, not a script -- see ADMIN.md "Setting up the Gerrit service account":
 sudo LDAP_ADMIN_PW='...' ggadmin-user add gerrit-bot "Gerrit Service Account" gerrit-bot@tkos.co.il admins
 sudo LDAP_ADMIN_PW='...' GERRIT_ADMIN_PW='...' GITEA_ADMIN_PW='...' \
-  bash scripts/install/11-remove-test-users.sh
+  bash scripts/install/14-remove-test-users.sh
 ```
+
+(This assumes `scripts/install/11-13` -- PostgreSQL -- already ran as
+part of `install/`, since `12`/`13` share the same "before
+`14-remove-test-users.sh`" constraint above.)
 
 Each script's own header comment has the exact credentials it needs and
 where to get them; the status list below explains what each one does
@@ -428,7 +447,7 @@ and why, not how to sequence them.
   these tools replace; that's expected, their job (bootstrap the lab)
   is already done. The lab test users `alice`/`bob`/`carol` aren't
   "special" accounts either and shouldn't survive into Day-2, but
-  removing them is `scripts/install/11-remove-test-users.sh`'s job now
+  removing them is `scripts/install/14-remove-test-users.sh`'s job now
   (see "Run the scripts as root" above and ADMIN.md's "Removing the lab
   test users") — not part of this credential-rotation step, just worth
   sequencing after `ldap-least-privilege.sh` below if you're doing both
@@ -472,13 +491,6 @@ and why, not how to sequence them.
   `https://` URL — Gerrit's `httpd.listenUrl` is already `proxy-http://`
   (trusting forwarded headers from a reverse proxy), so no other
   Gerrit-side change is needed.
-- [x] **Move Gerrit off H2 and Gitea off SQLite onto PostgreSQL** — done,
-  via `scripts/hardening/postgresql.sh`, `scripts/hardening/gerrit-postgresql.sh`, and
-  `scripts/hardening/gitea-postgresql.sh`. Neither turned out to be a simple
-  config-and-restart, as originally guessed in this section — see
-  gotchas 13-15 for what each actually took, including a real data
-  migration for Gitea (verified specific records survived across
-  multiple tables, not just that Gitea started).
 - [ ] Decide on the deferred items from WORKFLOW.md's "Open items" section
   (the Gerrit→Gitea webhook for in-review visibility, CI/CD placement).
 
@@ -495,7 +507,7 @@ reversible:
   `/etc/gitea` (every project, review, repo, issue, and wiki page — not
   just lab test data), the whole LDAP `ou=people`/`ou=groups`/
   `ou=services` tree under `BASE_DN`, the `gerritdb`/`giteadb`
-  PostgreSQL roles and databases if `scripts/hardening/postgresql.sh-15` were ever
+  PostgreSQL roles and databases if `scripts/install/11-13` were ever
   run, this project's nginx site config and self-signed TLS certs, the
   `gerrit`/`gitea` system users, and the `ggadmin-*` symlinks from
   `scripts/day2/install-ggadmin-tools.sh`. Needs `LDAP_ADMIN_PW` if slapd is still running
@@ -506,7 +518,7 @@ reversible:
   users still exist, unless `--force` is passed). `apt-get purge`s
   `nginx`, `slapd`/`ldap-utils`, every installed `postgresql*` package,
   and `openjdk-21-jre-headless` — the packages
-  `scripts/install/01`/`scripts/hardening/postgresql.sh` installed solely for this
+  `scripts/install/01`/`scripts/install/11-postgresql.sh` installed solely for this
   project — plus their config/data directories as a fallback in case a
   purge leaves them behind.
 

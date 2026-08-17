@@ -10,7 +10,7 @@
 #
 # Run as root:
 #   sudo LDAP_ADMIN_PW='...' GERRIT_ADMIN_PW='...' GITEA_ADMIN_PW='...' \
-#     bash 11-remove-test-users.sh
+#     bash 14-remove-test-users.sh
 #
 # Prerequisite: gerrit-bot must already exist and hold Gerrit admin
 # rights (see ADMIN.md's "Setting up the Gerrit service account" --
@@ -22,12 +22,16 @@
 # explanation (from scripts/day2/user-lifecycle.sh's own offboard
 # guard), not a confusing LDAP error.
 #
-# If you're also running scripts/hardening/ldap-least-privilege.sh, run
-# it BEFORE this script, not after -- its own verification step logs in
-# as alice/carol to prove the new ACL lockdown works, and has nothing
-# to verify with once they're gone (SYSADMIN.md's "Which ones to run,
-# and in what order" covers this in full). Nothing else in
-# scripts/hardening/ has any ordering relationship with this script.
+# Run this LAST, after everything else that needs alice/bob/carol
+# alive: scripts/install/12-gerrit-postgresql.sh and
+# scripts/install/13-gitea-postgresql.sh both authenticate as carol
+# (and 13 also checks alice's team membership) as part of their own
+# migration verification, so this script would break that verification
+# if run first. Same reason, if you're also running
+# scripts/hardening/ldap-least-privilege.sh: run it BEFORE this script
+# too, not after -- its own verification step logs in as alice/carol to
+# prove the new ACL lockdown works. (SYSADMIN.md's "Which ones to run,
+# and in what order" covers all of this in full.)
 #
 # Reuses scripts/day2/user-lifecycle.sh's `offboard --delete-entry`
 # for each of the three users -- same LDAP-removal + Gerrit/Gitea-
@@ -47,8 +51,8 @@
 # scripts/teardown/21-22, which affect everything, this affects three
 # specific, always-lab-only accounts). After this runs, several
 # install/hardening scripts that authenticate as carol/alice/bob
-# (scripts/install/04-07/09/10, scripts/hardening/ldap-least-privilege.sh,
-# scripts/hardening/gerrit-postgresql.sh, scripts/hardening/gitea-postgresql.sh)
+# (scripts/install/04-07/09/10, scripts/install/12-gerrit-postgresql.sh,
+# scripts/install/13-gitea-postgresql.sh, scripts/hardening/ldap-least-privilege.sh)
 # can no longer be blindly rerun on this host -- expected, their job is
 # already done.
 #

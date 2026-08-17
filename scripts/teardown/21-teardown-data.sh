@@ -104,7 +104,7 @@ for pair in "ggadmin-user:user-lifecycle.sh" "ggadmin-project:project-lifecycle.
   fi
 done
 
-# --- 3. PostgreSQL roles/databases, if scripts/hardening/postgresql.sh-15 were ever run ---
+# --- 3. PostgreSQL roles/databases, if scripts/install/11-13 were ever run ---
 if command -v psql >/dev/null 2>&1 && systemctl is-active --quiet postgresql 2>/dev/null; then
   for pair in "gerritdb:gerrit" "giteadb:gitea"; do
     db=${pair%%:*}
@@ -123,7 +123,7 @@ if command -v psql >/dev/null 2>&1 && systemctl is-active --quiet postgresql 2>/
     fi
   done
 else
-  log "PostgreSQL not installed/running -- skipping database/role cleanup (expected if scripts/hardening/postgresql.sh-15 were never run)"
+  log "PostgreSQL not installed/running -- skipping database/role cleanup (expected if scripts/install/11-13 were never run)"
 fi
 
 # --- 4. nginx site + TLS certs (leave the package and its other sites alone) ---

@@ -1,9 +1,16 @@
 #!/usr/bin/env bash
-# Production hardening: migrate Gerrit off H2 onto PostgreSQL.
-# Run as root, passing the gerrit role's password from scripts/hardening/postgresql.sh:
+# Migrate Gerrit off H2 onto PostgreSQL -- part of the same design
+# decision as scripts/install/11-postgresql.sh, not optional hardening.
+# Run as root, passing the gerrit role's password from scripts/install/11-postgresql.sh:
 #
 #   sudo GERRIT_DB_PW='...' CAROL_PW='...' \
-#     bash gerrit-postgresql.sh
+#     bash 12-gerrit-postgresql.sh
+#
+# CAROL_PW is needed because verification below logs in as carol to
+# exercise the migrated feature and rerun a push/review/submit cycle --
+# so this must run BEFORE scripts/install/14-remove-test-users.sh, not
+# after (same reason as scripts/hardening/ldap-least-privilege.sh; see
+# SYSADMIN.md's "Which ones to run, and in what order").
 #
 # What Gerrit's H2 database actually holds (confirmed by inspecting
 # /var/lib/gerrit/db/ before touching anything): just
@@ -35,7 +42,7 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../lib.sh"
 require_root
 
-: "${GERRIT_DB_PW:?Set GERRIT_DB_PW to the gerrit Postgres roles password from scripts/hardening/postgresql.sh}"
+: "${GERRIT_DB_PW:?Set GERRIT_DB_PW to the gerrit Postgres roles password from scripts/install/11-postgresql.sh}"
 : "${CAROL_PW:?Set CAROL_PW to carols current password}"
 
 SITE=/var/lib/gerrit

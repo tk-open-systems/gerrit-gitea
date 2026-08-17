@@ -361,7 +361,7 @@ never rewrite history.
 
 ### Removing the lab test users (alice/bob/carol)
 
-Script: `scripts/install/11-remove-test-users.sh` — the last install
+Script: `scripts/install/14-remove-test-users.sh` — the last install
 script, meant to run once you're done testing (see SYSADMIN.md's "Run
 the scripts as root"). Does everything below in order (offboards all
 three with `--delete-entry`, then deletes `cn=developers` only if it's
@@ -370,22 +370,26 @@ and `GITEA_ADMIN_PW`, same as `ggadmin-user offboard` itself:
 
 ```
 sudo LDAP_ADMIN_PW='...' GERRIT_ADMIN_PW='...' GITEA_ADMIN_PW='...' \
-  bash scripts/install/11-remove-test-users.sh
+  bash scripts/install/14-remove-test-users.sh
 ```
 
-If you're also running `scripts/hardening/ldap-least-privilege.sh`, run
-it *before* this script, not after — see SYSADMIN.md's "Which ones to
-run, and in what order" for why.
+Run this LAST: `scripts/install/12-gerrit-postgresql.sh`,
+`13-gitea-postgresql.sh`, and (if you're also running it)
+`scripts/hardening/ldap-least-privilege.sh` all authenticate as
+`alice`/`carol` as part of their own verification, so all of them need
+to run *before* this script, not after — see SYSADMIN.md's "Which ones
+to run, and in what order" for why.
 
 The rest of this section is what that script actually runs, and why —
 read on if you want the manual version or the reasoning, otherwise the
 command above is all you need.
 
 `alice`/`bob`/`carol` (`scripts/install/02-openldap.sh`) exist purely to
-exercise LDAP groups, Gerrit ACL bootstrap, and Gitea team sync while
-the install and hardening scripts (`scripts/install/02` through
-`scripts/hardening/gitea-postgresql.sh`) were being written and verified — they
-aren't real people and shouldn't still be sitting in the directory once
+exercise LDAP groups, Gerrit ACL bootstrap, Gitea team sync, and the
+PostgreSQL migration (`scripts/install/02` through `13`), plus
+`scripts/hardening/ldap-least-privilege.sh`, while all of those were
+being written and verified — they aren't real people and shouldn't
+still be sitting in the directory once
 this install moves into Day-2. Removing them is just the `offboard
 --delete-entry` procedure above, run against all three, but with one
 real wrinkle worth knowing before you start:
@@ -445,17 +449,17 @@ group) works again as documented above.
 
 As with any offboard, nothing in Gerrit/Gitea's own history is
 touched — commits `scripts/install/05`/`07`/`09` and
-`scripts/hardening/gerrit-postgresql.sh` authored as `carol` during bootstrap keep her
-name/email in their history forever, same as any other offboarded
-user's past work. And as SYSADMIN.md's Production Hardening section
-notes: once these three are gone, several other scripts stop working
-too, since they authenticate as `carol` —
+`scripts/install/12-gerrit-postgresql.sh` authored as `carol` during
+bootstrap keep her name/email in their history forever, same as any
+other offboarded user's past work. And as SYSADMIN.md's "Which ones to
+run, and in what order" notes: once these three are gone, several
+other scripts stop working too, since they authenticate as `carol` —
 `scripts/install/04`-`07`/`09`/`10` hardcode her original
-`ChangeMe123!` password, while `scripts/hardening/ldap-least-privilege.sh`/`14`/`15` take
-`CAROL_PW` as a parameter instead but still need her account to exist
-at all. Expected either way — their job is already done, none of them
-are meant to be
-rerun against this already-bootstrapped host.
+`ChangeMe123!` password, while `scripts/install/12-gerrit-postgresql.sh`,
+`13-gitea-postgresql.sh`, and `scripts/hardening/ldap-least-privilege.sh`
+take `CAROL_PW` as a parameter instead but still need her account to
+exist at all. Expected either way — their job is already done, none of
+them are meant to be rerun against this already-bootstrapped host.
 
 ## 2. Project lifecycle
 

@@ -372,3 +372,35 @@ This lab intentionally cut corners a production install shouldn't. Status:
   multiple tables, not just that Gitea started).
 - [ ] Decide on the deferred items from WORKFLOW.md's "Open items" section
   (the Gerrit→Gitea webhook for in-review visibility, CI/CD placement).
+
+## Tearing down the installation
+
+Two scripts, meant to be run in order, both requiring root and both
+gated by a confirmation prompt (type the host's `HOST_FQDN` to
+proceed, or pass `--yes` for scripted use) since neither is
+reversible:
+
+- **`scripts/21-teardown-data.sh`** — stops and removes everything
+  gg-specific: the `gerrit`/`gitea` systemd services and their
+  installed binaries, `/var/lib/gerrit`, `/var/lib/gitea`, `/etc/gitea`
+  (every project, review, repo, issue, and wiki page — not just lab
+  test data), the whole LDAP `ou=people`/`ou=groups`/`ou=services` tree
+  under `BASE_DN`, the `gerritdb`/`giteadb` PostgreSQL roles and
+  databases if `scripts/13-15` were ever run, this project's nginx
+  site config and self-signed TLS certs, the `gerrit`/`gitea` system
+  users, and the `ggadmin-*` symlinks from `scripts/20`. Needs
+  `LDAP_ADMIN_PW` if slapd is still running (same credential
+  `scripts/18` uses). Leaves the underlying packages installed.
+- **`scripts/22-teardown-packages.sh`** — run after the above (it
+  refuses to proceed if the `gerrit`/`gitea` systemd units or system
+  users still exist, unless `--force` is passed). `apt-get purge`s
+  `nginx`, `slapd`/`ldap-utils`, every installed `postgresql*` package,
+  and `openjdk-21-jre-headless` — the packages `scripts/01`/`13`
+  installed solely for this project — plus their config/data
+  directories as a fallback in case a purge leaves them behind.
+
+Both scripts are idempotent the same way `scripts/01-20` are: a
+target that's already gone is logged and skipped, not treated as an
+error, so a teardown interrupted partway through (or run twice) just
+finishes the rest instead of failing. **Apache2 on `:80` predates this
+project and neither script touches it.**

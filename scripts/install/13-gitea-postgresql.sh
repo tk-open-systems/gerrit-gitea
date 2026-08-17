@@ -9,7 +9,7 @@
 # CAROL_PW is needed because verification below confirms carol can
 # still log in and checks alice's team membership survived -- so this
 # must run BEFORE scripts/install/14-remove-test-users.sh, not after
-# (same reason as scripts/hardening/ldap-least-privilege.sh; see
+# (same reason as scripts/post-install/ldap-least-privilege.sh; see
 # SYSADMIN.md's "Which ones to run, and in what order").
 #
 # Unlike Gerrit's H2 (which only held disposable reviewed-file

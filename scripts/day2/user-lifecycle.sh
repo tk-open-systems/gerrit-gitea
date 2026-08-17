@@ -12,7 +12,7 @@
 # Gitea only resyncs at login time.
 #
 # Needs LDAP_ADMIN_PW always (cn=admin's current password -- set by
-# scripts/hardening/set-service-credentials.sh ldap-admin, so there's no safe
+# scripts/post-install/set-service-credentials.sh ldap-admin, so there's no safe
 # default to fall back to here). offboard/reactivate also need
 # GERRIT_ADMIN_PW and GITEA_ADMIN_PW (current passwords for the
 # gerrit-bot/gitea-admin admin accounts -- see ADMIN.md's "Setting up
@@ -90,7 +90,7 @@ ORIG_ARGS_Q=$(printf '%q ' "$@")
 
 if [ -z "${LDAP_ADMIN_PW:-}" ]; then
   die "LDAP_ADMIN_PW is not set (cn=admin current password).
-  Get it from: scripts/hardening/set-service-credentials.sh ldap-admin printed it the last time that ran; if it was never run, it is still the install default, ChangeMe123!
+  Get it from: scripts/post-install/set-service-credentials.sh ldap-admin printed it the last time that ran; if it was never run, it is still the install default, ChangeMe123!
   Then rerun this exact command with it set:
     LDAP_ADMIN_PW=\"...\" ${SCRIPT_NAME} ${ORIG_ARGS_Q}
   (invoking via sudo instead of already being root? put VAR=value right after the word sudo, since sudo otherwise drops plain env vars: sudo LDAP_ADMIN_PW=\"...\" ${SCRIPT_NAME} ${ORIG_ARGS_Q})"
@@ -287,7 +287,7 @@ EOF
   [ "$delete_entry" -eq 1 ] && orig_cmd="${orig_cmd} --delete-entry"
   if [ -z "${GERRIT_ADMIN_PW:-}" ] || [ -z "${GITEA_ADMIN_PW:-}" ]; then
     die "GERRIT_ADMIN_PW and GITEA_ADMIN_PW are not set -- needed to also deactivate the Gerrit/Gitea accounts (current passwords for ${GERRIT_ADMIN_USER} and ${GITEA_ADMIN_USER}).
-  Get them from: GERRIT_ADMIN_PW was printed once by whichever of "ggadmin-user add gerrit-bot ..." or "ggadmin-user set-password gerrit-bot" set it last (no bootstrap default -- it never was ChangeMe123!); GITEA_ADMIN_PW was printed by "scripts/hardening/set-service-credentials.sh gitea-admin" the last time that ran, or is still the install default ChangeMe123! if it never has.
+  Get them from: GERRIT_ADMIN_PW was printed once by whichever of "ggadmin-user add gerrit-bot ..." or "ggadmin-user set-password gerrit-bot" set it last (no bootstrap default -- it never was ChangeMe123!); GITEA_ADMIN_PW was printed by "scripts/post-install/set-service-credentials.sh gitea-admin" the last time that ran, or is still the install default ChangeMe123! if it never has.
   Then rerun this exact command with them set:
     GERRIT_ADMIN_PW=\"...\" GITEA_ADMIN_PW=\"...\" ${SCRIPT_NAME} ${orig_cmd}
   (invoking via sudo instead of already being root? put the same VAR=value pairs right after the word sudo, since sudo otherwise drops plain env vars: sudo GERRIT_ADMIN_PW=\"...\" GITEA_ADMIN_PW=\"...\" ${SCRIPT_NAME} ${orig_cmd})"
@@ -330,7 +330,7 @@ cmd_reactivate() {
   local orig_cmd="reactivate $(printf '%q' "$uid")"
   if [ -z "${GERRIT_ADMIN_PW:-}" ] || [ -z "${GITEA_ADMIN_PW:-}" ]; then
     die "GERRIT_ADMIN_PW and GITEA_ADMIN_PW are not set (current passwords for ${GERRIT_ADMIN_USER} and ${GITEA_ADMIN_USER}).
-  Get them from: GERRIT_ADMIN_PW was printed once by whichever of "ggadmin-user add gerrit-bot ..." or "ggadmin-user set-password gerrit-bot" set it last (no bootstrap default -- it never was ChangeMe123!); GITEA_ADMIN_PW was printed by "scripts/hardening/set-service-credentials.sh gitea-admin" the last time that ran, or is still the install default ChangeMe123! if it never has.
+  Get them from: GERRIT_ADMIN_PW was printed once by whichever of "ggadmin-user add gerrit-bot ..." or "ggadmin-user set-password gerrit-bot" set it last (no bootstrap default -- it never was ChangeMe123!); GITEA_ADMIN_PW was printed by "scripts/post-install/set-service-credentials.sh gitea-admin" the last time that ran, or is still the install default ChangeMe123! if it never has.
   Then rerun this exact command with them set:
     GERRIT_ADMIN_PW=\"...\" GITEA_ADMIN_PW=\"...\" ${SCRIPT_NAME} ${orig_cmd}
   (invoking via sudo instead of already being root? put the same VAR=value pairs right after the word sudo, since sudo otherwise drops plain env vars: sudo GERRIT_ADMIN_PW=\"...\" GITEA_ADMIN_PW=\"...\" ${SCRIPT_NAME} ${orig_cmd})"

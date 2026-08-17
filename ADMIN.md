@@ -41,7 +41,7 @@ has to be passed in on every invocation, as an env var on the `sudo`
 command line (sudo strips plain env vars otherwise; see each script's
 header for the exact syntax, or just run the command without them once
 — the error message gives you the exact fix). `LDAP_ADMIN_PW` and
-`GITEA_ADMIN_PW` are whatever `scripts/hardening/set-service-credentials.sh
+`GITEA_ADMIN_PW` are whatever `scripts/post-install/set-service-credentials.sh
 ldap-admin` / `... gitea-admin` last set them to, or still the install
 default `ChangeMe123!` if that was never run; `GERRIT_ADMIN_PW` is
 whatever `ggadmin-user add gerrit-bot ...` or
@@ -76,7 +76,7 @@ where to reset one.
   every ACL by being the directory root, so it has no connection to
   group membership at all. Set at bootstrap by `scripts/install/02-openldap.sh`
   (lab default `ChangeMe123!`); changed by
-  `scripts/hardening/set-service-credentials.sh ldap-admin` via
+  `scripts/post-install/set-service-credentials.sh ldap-admin` via
   `ldapmodify -Y EXTERNAL` against the `cn=config` backend over
   `ldapi:///` (SASL EXTERNAL auth as root, not a regular LDAP bind).
 
@@ -96,7 +96,7 @@ where to reset one.
   (`scripts/install/03-gitea.sh`, `scripts/install/06-gitea-ldap.sh`) — a completely
   separate identity from LDAP, stored in Gitea's own database. Set at
   bootstrap by `scripts/install/03-gitea.sh`; changed by
-  `scripts/hardening/set-service-credentials.sh gitea-admin` via Gitea's own
+  `scripts/post-install/set-service-credentials.sh gitea-admin` via Gitea's own
   `gitea admin user change-password` CLI, which never touches LDAP.
 
 **Connection to group membership/roles — and it's asymmetric between
@@ -375,7 +375,7 @@ sudo LDAP_ADMIN_PW='...' GERRIT_ADMIN_PW='...' GITEA_ADMIN_PW='...' \
 
 Run this LAST: `scripts/install/12-gerrit-postgresql.sh`,
 `13-gitea-postgresql.sh`, and (if you're also running it)
-`scripts/hardening/ldap-least-privilege.sh` all authenticate as
+`scripts/post-install/ldap-least-privilege.sh` all authenticate as
 `alice`/`carol` as part of their own verification, so all of them need
 to run *before* this script, not after — see SYSADMIN.md's "Which ones
 to run, and in what order" for why.
@@ -387,7 +387,7 @@ command above is all you need.
 `alice`/`bob`/`carol` (`scripts/install/02-openldap.sh`) exist purely to
 exercise LDAP groups, Gerrit ACL bootstrap, Gitea team sync, and the
 PostgreSQL migration (`scripts/install/02` through `13`), plus
-`scripts/hardening/ldap-least-privilege.sh`, while all of those were
+`scripts/post-install/ldap-least-privilege.sh`, while all of those were
 being written and verified — they aren't real people and shouldn't
 still be sitting in the directory once
 this install moves into Day-2. Removing them is just the `offboard
@@ -456,7 +456,7 @@ run, and in what order" notes: once these three are gone, several
 other scripts stop working too, since they authenticate as `carol` —
 `scripts/install/04`-`07`/`09`/`10` hardcode her original
 `ChangeMe123!` password, while `scripts/install/12-gerrit-postgresql.sh`,
-`13-gitea-postgresql.sh`, and `scripts/hardening/ldap-least-privilege.sh`
+`13-gitea-postgresql.sh`, and `scripts/post-install/ldap-least-privilege.sh`
 take `CAROL_PW` as a parameter instead but still need her account to
 exist at all. Expected either way — their job is already done, none of
 them are meant to be rerun against this already-bootstrapped host.

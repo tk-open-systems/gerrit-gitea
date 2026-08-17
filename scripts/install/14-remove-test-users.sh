@@ -28,7 +28,7 @@
 # (and 13 also checks alice's team membership) as part of their own
 # migration verification, so this script would break that verification
 # if run first. Same reason, if you're also running
-# scripts/hardening/ldap-least-privilege.sh: run it BEFORE this script
+# scripts/post-install/ldap-least-privilege.sh: run it BEFORE this script
 # too, not after -- its own verification step logs in as alice/carol to
 # prove the new ACL lockdown works. (SYSADMIN.md's "Which ones to run,
 # and in what order" covers all of this in full.)
@@ -45,14 +45,14 @@
 #
 # DESTRUCTIVE, but narrowly scoped and expected: this only ever touches
 # alice/bob/carol and the developers group, never a real account. Not
-# reversible -- comparable to scripts/hardening/set-service-credentials.sh's
+# reversible -- comparable to scripts/post-install/set-service-credentials.sh's
 # credential rotation: a one-way step towards Day-2, not something that
 # needs an interactive confirmation prompt every time (unlike
 # scripts/teardown/21-22, which affect everything, this affects three
-# specific, always-lab-only accounts). After this runs, several
-# install/hardening scripts that authenticate as carol/alice/bob
-# (scripts/install/04-07/09/10, scripts/install/12-gerrit-postgresql.sh,
-# scripts/install/13-gitea-postgresql.sh, scripts/hardening/ldap-least-privilege.sh)
+# specific, always-lab-only accounts). After this runs, several other
+# scripts that authenticate as carol/alice/bob (scripts/install/04-07/09/10,
+# scripts/install/12-gerrit-postgresql.sh,
+# scripts/install/13-gitea-postgresql.sh, scripts/post-install/ldap-least-privilege.sh)
 # can no longer be blindly rerun on this host -- expected, their job is
 # already done.
 #

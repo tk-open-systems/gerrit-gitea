@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-# Production hardening: dedicated least-privilege LDAP bind account.
+# Post-install: dedicated least-privilege LDAP bind account. Not
+# optional hardening -- this directory ships wide open (see below), so
+# treat this as required to close that gap for any real deployment,
+# same reasoning as scripts/post-install/set-service-credentials.sh.
 # Run as root, passing the CURRENT passwords for cn=admin, alice, and
 # carol (needed to verify the lockdown -- see step 5 below; `sudo`
 # strips the environment by default, so pass them on the sudo command
@@ -42,7 +45,7 @@
 # reader account) is reverified end to end.
 #
 # NOT safe to blindly rerun with the SAME generated password (it mints
-# a new one each time, like scripts/hardening/set-service-credentials.sh) -- but every step is
+# a new one each time, like scripts/post-install/set-service-credentials.sh) -- but every step is
 # idempotent/guarded (LDAP entries via ldap_add_if_missing, ACL via a
 # plain replace, config edits via git config -f), so rerunning just
 # rotates the reader account's password and re-verifies everything.
@@ -59,7 +62,7 @@ GERRIT_URL="http://127.0.0.1:8080"
 GITEA_URL="http://127.0.0.1:3000"
 
 # Current passwords, likely already rotated off the lab default by
-# scripts/hardening/set-service-credentials.sh -- nothing persists them anywhere, so they must be passed
+# scripts/post-install/set-service-credentials.sh -- nothing persists them anywhere, so they must be passed
 # in rather than hard-coded.
 : "${LDAP_ADMIN_PW:?Set LDAP_ADMIN_PW to the current cn=admin password}"
 : "${ALICE_PW:?Set ALICE_PW to alices current password}"
@@ -94,7 +97,7 @@ objectClass: organizationalRole
 objectClass: simpleSecurityObject
 cn: ldap-reader
 userPassword: ${READER_HASH}
-description: Bind-only account for Gerrit/Gitea directory searches -- read access only, see scripts/hardening/ldap-least-privilege.sh
+description: Bind-only account for Gerrit/Gitea directory searches -- read access only, see scripts/post-install/ldap-least-privilege.sh
 EOF
   log "created reader account ${READER_DN}"
 fi

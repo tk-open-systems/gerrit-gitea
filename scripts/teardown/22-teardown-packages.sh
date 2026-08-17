@@ -90,7 +90,7 @@ purge_matching '^openjdk-21-jre-headless$'
 
 # Belt-and-suspenders: apt purge normally removes these, but a
 # manually-created directory (slapd's own database dir, config edited
-# by scripts/hardening/ldap-least-privilege.sh / scripts/install/11-postgresql.sh) can survive if a purge prompt was ever answered
+# by scripts/post-install/ldap-least-privilege.sh / scripts/install/11-postgresql.sh) can survive if a purge prompt was ever answered
 # "keep" in the past, and scripts/teardown/21 already deleted the actual LDAP
 # entries and DB roles/databases anyway -- there is no live data left
 # to lose here.

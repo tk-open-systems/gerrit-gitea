@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Day-2 operation: set/change the password for one or more of this
-# lab's non-human "special" accounts, individually:
+# Post-install: set/change the password for one or more of this lab's
+# non-human "special" accounts, individually:
 #   ldap-admin          cn=admin -- the LDAP directory's own root bind
 #   ldap-reader         cn=ldap-reader,ou=services,... -- read-only
 #                       search bind for Gerrit/Gitea (only exists if
-#                       scripts/hardening/ldap-least-privilege.sh has run)
+#                       scripts/post-install/ldap-least-privilege.sh has run)
 #   gitea-admin         local Gitea instance-admin account
 #   gerrit-replication  local Gitea account the replication plugin
 #                       pushes as
@@ -22,7 +22,7 @@
 #
 # Or, to rotate every special account that currently exists in one
 # call -- ldap-admin/gitea-admin/gerrit-replication always, ldap-reader
-# too if scripts/hardening/ldap-least-privilege.sh has already been
+# too if scripts/post-install/ldap-least-privilege.sh has already been
 # run -- pass the single pseudo-account `all` instead of listing them:
 #   sudo bash set-service-credentials.sh all
 # None of these three (or four) are touched by scripts/install/ on its
@@ -38,7 +38,7 @@
 # Only ldap-reader needs an existing credential (LDAP_ADMIN_PW,
 # cn=admin's CURRENT password, to authenticate the change). The other
 # three need none: ldap-admin changes via SASL EXTERNAL as root against
-# the cn=config backend (the same mechanism scripts/hardening/ldap-least-privilege.sh uses), and
+# the cn=config backend (the same mechanism scripts/post-install/ldap-least-privilege.sh uses), and
 # gitea-admin/gerrit-replication change via the `gitea` CLI run as the
 # `gitea` OS user -- both need only root on this host.
 #
@@ -47,7 +47,7 @@
 # affected service restarted too, so a password change never leaves a
 # service unable to search the directory. Which DN they're currently
 # bound as isn't guessed: scripts/install/06-gitea-ldap.sh always points both
-# at cn=admin, and scripts/hardening/ldap-least-privilege.sh always repoints
+# at cn=admin, and scripts/post-install/ldap-least-privilege.sh always repoints
 # BOTH at ldap-reader together, atomically -- so "does cn=ldap-reader
 # exist" is a reliable signal for which one currently applies. Changing
 # gerrit-replication's password similarly updates the copy embedded in
@@ -81,7 +81,7 @@ if [ "${1:-}" = "all" ]; then
   if ldapsearch -x -H ldap://localhost -b "$READER_DN" -s base "(objectClass=*)" dn >/dev/null 2>&1; then
     set -- "$@" ldap-reader
   else
-    log "cn=ldap-reader does not exist yet (scripts/hardening/ldap-least-privilege.sh hasn't run) -- 'all' only covers what currently exists, skipping it"
+    log "cn=ldap-reader does not exist yet (scripts/post-install/ldap-least-privilege.sh hasn't run) -- 'all' only covers what currently exists, skipping it"
   fi
 fi
 
@@ -122,7 +122,7 @@ update_gerrit_ldap_bind() {
 # set on every update, not just bind-dn/bind-password: `update-ldap`
 # silently resets any omitted field (including group-sync settings) to
 # empty, confirmed the hard way once already (see
-# scripts/hardening/ldap-least-privilege.sh's comment on this exact gotcha).
+# scripts/post-install/ldap-least-privilege.sh's comment on this exact gotcha).
 update_gitea_ldap_bind() {
   local bind_dn=$1 new_pw=$2
   local id; id=$(gitea_ldap_source_id)
@@ -184,7 +184,7 @@ EOF
 }
 
 set_ldap_reader() {
-  reader_exists || die "cn=ldap-reader does not exist -- scripts/hardening/ldap-least-privilege.sh has not been run on this host, nothing to change"
+  reader_exists || die "cn=ldap-reader does not exist -- scripts/post-install/ldap-least-privilege.sh has not been run on this host, nothing to change"
   : "${LDAP_ADMIN_PW:?Set LDAP_ADMIN_PW to cn=admin current password, needed to authenticate this change}"
   local new_pw=${NEW_LDAP_READER_PW:-$(gen_pw)}
   local hash; hash=$(/usr/sbin/slappasswd -s "$new_pw")

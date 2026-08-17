@@ -39,14 +39,13 @@ submit → replicate → issue-auto-close cycle.
       test users `alice`/`bob`/`carol` (LDAP entries + Gerrit/Gitea
       deactivation) once they're no longer needed, and the now-empty
       `developers` LDAP group they leave behind
-- [x] `scripts/hardening/set-service-credentials.sh` — sets/changes the
+- [x] `scripts/post-install/set-service-credentials.sh` — sets/changes the
       password for one or more of the non-human "special" accounts
       (`ldap-admin`, `ldap-reader`, `gitea-admin`, `gerrit-replication`),
-      individually or all at once (`all`); see Production Hardening
-      below for what's done vs. not
-- [x] `scripts/hardening/ldap-least-privilege.sh` — locks down the directory's
+      individually or all at once (`all`) — see "Post-install" below
+- [x] `scripts/post-install/ldap-least-privilege.sh` — locks down the directory's
       previously-nonexistent ACLs and adds a dedicated read-only bind
-      account for Gerrit/Gitea
+      account for Gerrit/Gitea — see "Post-install" below
 - [x] `scripts/hardening/nginx-tls.sh` — self-signed HTTPS on `:8453`/`:8454`,
       additive alongside the existing plain-HTTP `:8090`/`:8091`
 - [ ] Production hardening beyond what's listed above (see below) — not
@@ -188,16 +187,31 @@ rather than continuing one sequence:
   - `14-remove-test-users.sh` removes the lab test users `alice`/
     `bob`/`carol` once they're no longer needed — genuinely optional,
     and must run **last**: it needs `gerrit-bot` set up first, and `12`/
-    `13` (plus `scripts/hardening/ldap-least-privilege.sh`, if you're
+    `13` (plus `scripts/post-install/ldap-least-privilege.sh`, if you're
     using that too) all need `alice`/`carol` still alive for their own
     verification steps (see ADMIN.md's "Removing the lab test users"
     and "Which ones to run, and in what order" below).
-- **`scripts/hardening/`** — production hardening (credential rotation,
-  LDAP least-privilege, self-signed TLS). Unlike `install/`, these
-  aren't one linear sequence — the three scripts here are independent
-  of each other, and none is required for a lab, which is why the
-  files themselves aren't numbered. See "Production hardening" below
-  for what each one does and its one ordering dependency.
+- **`scripts/post-install/`** — closes the gap between "installed" and
+  "not shipping known-insecure defaults," which `install/` deliberately
+  leaves open for reproducibility (see "Every account in this lab uses
+  the password `ChangeMe123!`" above). Skippable for a disposable lab,
+  but effectively required for any real deployment, same reasoning as
+  the PostgreSQL scripts above — just not part of `install/` itself
+  since neither changes how the system works, only how exposed it is
+  by default: `set-service-credentials.sh all` rotates every "special"
+  account off `ChangeMe123!` in one command (`ldap-admin`,
+  `gitea-admin`, `gerrit-replication` are all still on it after
+  `install/` alone); `ldap-least-privilege.sh` locks down the LDAP
+  directory, which otherwise ships with **no ACLs at all** — anonymous
+  can read the entire `ou=people`/`ou=groups` tree. The two aren't
+  numbered relative to each other (no ordering constraint between
+  them), but both share one real dependency against
+  `scripts/install/14-remove-test-users.sh` — see "Post-install" below.
+- **`scripts/hardening/`** — genuinely optional, deferrable extras:
+  currently just `nginx-tls.sh` (self-signed HTTPS), which needs a real
+  domain/CA-signed cert to matter for production and is fine to put off
+  until you have one. Not numbered, same reason as `post-install/`: no
+  sequence to number by.
 - **`scripts/day2/`** — ongoing/Day-2 tooling, not setup, and not a
   sequence either (hence no numbers): `customer-sync.sh` runs as
   needed, not once; `user-lifecycle.sh`/`project-lifecycle.sh` are the
@@ -307,7 +321,7 @@ These cost real debugging time; they're recorded here so the next person
     afterward rather than trusting the HTTP status code — which is exactly
     what the fixed script now does.
 12. **This directory had no explicit ACLs at all until
-    `scripts/hardening/ldap-least-privilege.sh`**, running on OpenLDAP's
+    `scripts/post-install/ldap-least-privilege.sh`**, running on OpenLDAP's
     compiled-in default: `userPassword` was protected, but every other
     attribute — names, emails, group membership — was readable by a fully
     anonymous, unauthenticated bind. Confirmed live before fixing it:
@@ -363,22 +377,22 @@ These cost real debugging time; they're recorded here so the next person
     that being the documented `.load`-file syntax; each option needs its
     own `--with`.
 
-## Production hardening
+## Post-install
 
-This lab intentionally cut corners a production install shouldn't. None of
-this is required — the install is already complete and working after
-`09-smoke-test.sh` (see "Run the scripts as root" above) — so treat
-everything below as opt-in, not a continuation of the install sequence.
+`install/` deliberately ships with known lab-default credentials and a
+wide-open LDAP directory, for reproducibility (see "Every account in
+this lab uses the password `ChangeMe123!`" above) — these two scripts
+close that gap. Not part of `install/` itself, since neither changes
+how the system works, only how exposed it is by default (unlike the
+PostgreSQL scripts, a real architecture decision) — but not "opt-in"
+the way "Production hardening" below is, either: skippable for a
+disposable lab, effectively required for anything real.
 
 ### Which ones to run, and in what order
 
-The three scripts here are independent of each other — run any, all,
-or none of them, in any order, whenever you want that particular
-hardening step. None has any ordering constraint against the others,
-which is why none of the files are numbered.
-
-One of the three, though, shares a dependency against
-`scripts/install/14-remove-test-users.sh` (not against the other two):
+The two scripts are independent of each other — no ordering constraint
+between them, which is why neither file is numbered. Both, though,
+share a dependency against `scripts/install/14-remove-test-users.sh`:
 
 - **`ldap-least-privilege.sh` before `scripts/install/14-remove-test-users.sh`,
   not after** — `ldap-least-privilege.sh`'s own verification step logs
@@ -388,23 +402,20 @@ One of the three, though, shares a dependency against
   lockdown while the test users still exist; removing them is
   `install/`'s job, done last. (`scripts/install/12-gerrit-postgresql.sh`
   and `13-gitea-postgresql.sh` have this exact same constraint, for the
-  same reason — see "Run the scripts as root" above; it's not repeated
-  here since those two aren't hardening scripts.)
+  same reason — see "Run the scripts as root" above.)
 
 `set-service-credentials.sh` has no ordering constraint against
-`nginx-tls.sh` or anything else — run it whenever the credential you
-want to rotate exists (or use `all`), and run `nginx-tls.sh` whenever
-you want TLS.
+`ldap-least-privilege.sh` or anything else — run it whenever the
+credential you want to rotate exists (or use `all`).
 
 A reasonable sequence, doing both plus the final test-user cleanup:
 
 ```
 sudo LDAP_ADMIN_PW='...' ALICE_PW='...' CAROL_PW='...' \
-  bash scripts/hardening/ldap-least-privilege.sh
-sudo LDAP_ADMIN_PW='...' bash scripts/hardening/set-service-credentials.sh all
+  bash scripts/post-install/ldap-least-privilege.sh
+sudo LDAP_ADMIN_PW='...' bash scripts/post-install/set-service-credentials.sh all
 # ^ prints a NEW ldap-admin password -- every '...' placeholder below
 # means that new value, not the one used above.
-sudo bash scripts/hardening/nginx-tls.sh
 # manual, not a script -- see ADMIN.md "Setting up the Gerrit service account":
 sudo LDAP_ADMIN_PW='...' ggadmin-user add gerrit-bot "Gerrit Service Account" gerrit-bot@tkos.co.il admins
 sudo LDAP_ADMIN_PW='...' GERRIT_ADMIN_PW='...' GITEA_ADMIN_PW='...' \
@@ -428,14 +439,14 @@ and why, not how to sequence them.
   `ldap-reader` doesn't even exist yet; that's deliberate (see "Every
   account in this lab uses the password `ChangeMe123!`" above), not an
   oversight, since scripts/install/02-10 rely on it being the same
-  known value every run. Rotating is this separate, opt-in step. Non-
-  human "special" accounts (the LDAP admin bind, the `ldap-reader`
-  search bind if `scripts/hardening/ldap-least-privilege.sh` has been
-  run, and Gitea's two local accounts `gitea-admin`/
-  `gerrit-replication`) go through `scripts/hardening/set-service-credentials.sh
-  <account> [<account> ...]`, one or more at a time, **or `all` to
-  rotate every one of them that currently exists in a single command**
-  — it updates every place each account's password is stored (Gerrit's
+  known value every run. Rotating is this separate step. Non-human
+  "special" accounts (the LDAP admin bind, the `ldap-reader` search
+  bind if `scripts/post-install/ldap-least-privilege.sh` has been run,
+  and Gitea's two local accounts `gitea-admin`/`gerrit-replication`) go
+  through `scripts/post-install/set-service-credentials.sh <account>
+  [<account> ...]`, one or more at a time, **or `all` to rotate every
+  one of them that currently exists in a single command** — it updates
+  every place each account's password is stored (Gerrit's
   `secure.config`/`replication.config`, Gitea's LDAP auth source) and
   restarts whatever needs it, verifying the new password actually
   authenticates rather than trusting the update call succeeded. Real LDAP people (any real
@@ -453,7 +464,7 @@ and why, not how to sequence them.
   sequencing after `ldap-least-privilege.sh` below if you're doing both
   (see "Which ones to run, and in what order").
 - [x] **Dedicated, least-privilege LDAP bind account** — done, via
-  `scripts/hardening/ldap-least-privilege.sh`. Replaced the directory admin DN
+  `scripts/post-install/ldap-least-privilege.sh`. Replaced the directory admin DN
   Gerrit/Gitea had been reusing (a deliberate shortcut during initial
   setup, see `scripts/install/02-openldap.sh`) with `cn=ldap-reader`, and — since
   the directory had no explicit ACLs at all before this, running on
@@ -462,6 +473,17 @@ and why, not how to sequence them.
   reader-only ACL breaks Gitea's group sync, because Gitea's LDAP client
   reuses one connection across the login flow and ends up running the
   group-membership search as the logging-in user, not the reader.
+
+## Production hardening
+
+Genuinely optional, deferrable extras — unlike "Post-install" above,
+nothing here closes a "ships insecure by default" gap; it's real
+production-grade infrastructure this lab doesn't have the resources
+for (a public domain, a real CA-signed cert), documented for when you
+do.
+
+### Status
+
 - [ ] **Point at a real corporate LDAP/OIDC directory** instead of the
   local `slapd` from `scripts/install/02-openldap.sh`. Can't be executed on this
   lab host (no real directory to point at), but the change itself is
@@ -470,11 +492,11 @@ and why, not how to sequence them.
   `add-ldap` flags both need to match your real directory's schema (base
   DNs, the attribute holding group membership, whether it uses
   `groupOfNames`/`member` like this lab or something else e.g.
-  `memberOf`) — the least-privilege bind account itself is already handled
-  above, just pointed at this lab's own directory rather than a real one.
-  Everything downstream (Gerrit ACLs bound to `ldap/<dn>` groups, Gitea's
-  group-to-team sync) is structurally identical either way; only the
-  connection details change.
+  `memberOf`) — the least-privilege bind account itself is already
+  handled in "Post-install" above, just pointed at this lab's own
+  directory rather than a real one. Everything downstream (Gerrit ACLs
+  bound to `ldap/<dn>` groups, Gitea's group-to-team sync) is
+  structurally identical either way; only the connection details change.
 - [x] **TLS termination on nginx** — partially done. `scripts/hardening/nginx-tls.sh`
   adds self-signed HTTPS on `:8453`/`:8454`, purely additive alongside the
   existing plain-HTTP `:8090`/`:8091`, to demonstrate TLS termination

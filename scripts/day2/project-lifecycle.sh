@@ -21,7 +21,7 @@
 # Needs GERRIT_ADMIN_PW and GITEA_ADMIN_PW (current passwords for the
 # gerrit-bot/gitea-admin admin accounts -- see ADMIN.md's "Setting up
 # the Gerrit service account" for why it's gerrit-bot and not a human's
-# own login -- set by scripts/hardening/set-service-credentials.sh gitea-admin
+# own login -- set by scripts/post-install/set-service-credentials.sh gitea-admin
 # for the other; there's no safe default here). sudo strips the
 # environment by default, so pass these on the sudo command line (sudo
 # still applies them under env_reset):
@@ -83,7 +83,7 @@ ORIG_ARGS_Q=$(printf '%q ' "$@")
 
 if [ -z "${GERRIT_ADMIN_PW:-}" ] || [ -z "${GITEA_ADMIN_PW:-}" ]; then
   die "GERRIT_ADMIN_PW and GITEA_ADMIN_PW are not set (current passwords for ${GERRIT_ADMIN_USER} and ${GITEA_ADMIN_USER}).
-  Get them from: GERRIT_ADMIN_PW was printed once by whichever of "ggadmin-user add gerrit-bot ..." or "ggadmin-user set-password gerrit-bot" set it last (no bootstrap default -- it never was ChangeMe123!); GITEA_ADMIN_PW was printed by "scripts/hardening/set-service-credentials.sh gitea-admin" the last time that ran, or is still the install default ChangeMe123! if it never has.
+  Get them from: GERRIT_ADMIN_PW was printed once by whichever of "ggadmin-user add gerrit-bot ..." or "ggadmin-user set-password gerrit-bot" set it last (no bootstrap default -- it never was ChangeMe123!); GITEA_ADMIN_PW was printed by "scripts/post-install/set-service-credentials.sh gitea-admin" the last time that ran, or is still the install default ChangeMe123! if it never has.
   Then rerun this exact command with them set:
     GERRIT_ADMIN_PW=\"...\" GITEA_ADMIN_PW=\"...\" ${SCRIPT_NAME} ${ORIG_ARGS_Q}
   (invoking via sudo instead of already being root? put the same VAR=value pairs right after the word sudo, since sudo otherwise drops plain env vars: sudo GERRIT_ADMIN_PW=\"...\" GITEA_ADMIN_PW=\"...\" ${SCRIPT_NAME} ${ORIG_ARGS_Q})"

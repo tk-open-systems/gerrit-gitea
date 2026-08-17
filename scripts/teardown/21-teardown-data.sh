@@ -11,7 +11,7 @@
 #
 # Run as root: sudo LDAP_ADMIN_PW='...' bash 21-teardown-data.sh [--yes]
 #
-# LDAP_ADMIN_PW is cn=admin's current password (scripts/hardening/set-service-credentials.sh's last run,
+# LDAP_ADMIN_PW is cn=admin's current password (scripts/post-install/set-service-credentials.sh's last run,
 # or the install default ChangeMe123! if that was never run) -- needed
 # to delete the LDAP tree over the wire rather than touching slapd's
 # database files directly while it's running.
@@ -69,7 +69,7 @@ fi
 # no reason to leave a run half-finished for a checkable precondition).
 if command -v ldapsearch >/dev/null 2>&1 && systemctl is-active --quiet slapd 2>/dev/null \
    && [ -z "${LDAP_ADMIN_PW:-}" ]; then
-  die "LDAP_ADMIN_PW is not set (cn=admin's current password -- scripts/hardening/set-service-credentials.sh ldap-admin's last run, or the install default ChangeMe123! if that was never run).
+  die "LDAP_ADMIN_PW is not set (cn=admin's current password -- scripts/post-install/set-service-credentials.sh ldap-admin's last run, or the install default ChangeMe123! if that was never run).
   Rerun with it set: sudo LDAP_ADMIN_PW='...' bash ${SCRIPT_NAME} --yes"
 fi
 
@@ -173,7 +173,7 @@ if command -v ldapsearch >/dev/null 2>&1 && systemctl is-active --quiet slapd 2>
       log "LDAP subtree ${dn} already gone"
     fi
   done
-  log "note: cn=admin's rootDN/rootPW and the read-only ACLs from scripts/hardening/ldap-least-privilege.sh are still set on slapd's cn=config -- harmless on an empty directory, but not reverted to slapd's original defaults. scripts/teardown/22-teardown-packages.sh's slapd purge resets that too."
+  log "note: cn=admin's rootDN/rootPW and the read-only ACLs from scripts/post-install/ldap-least-privilege.sh are still set on slapd's cn=config -- harmless on an empty directory, but not reverted to slapd's original defaults. scripts/teardown/22-teardown-packages.sh's slapd purge resets that too."
 else
   log "slapd not installed/running -- skipping LDAP cleanup (expected if it was already purged)"
 fi

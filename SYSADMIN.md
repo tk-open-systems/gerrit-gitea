@@ -330,7 +330,61 @@ These cost real debugging time; they're recorded here so the next person
 
 ## Production hardening
 
-This lab intentionally cut corners a production install shouldn't. Status:
+This lab intentionally cut corners a production install shouldn't. None of
+this is required — the install is already complete and working after
+`09-smoke-test.sh` (see "Run the scripts as root" above) — so treat
+everything below as opt-in, not a continuation of the install sequence.
+
+### Which ones to run, and in what order
+
+Most of these scripts are independent of each other and can be run in
+any order, whenever you want that particular hardening step. Two real
+dependencies exist, though, and getting them backwards either fails
+outright or quietly skips a verification step:
+
+- **`13-postgresql.sh` before `14-gerrit-postgresql.sh`/
+  `15-gitea-postgresql.sh`** — 14/15 need the `GERRIT_DB_PW`/
+  `GITEA_DB_PW` that 13 prints once when it creates the roles. Run 13,
+  capture the output, then 14 and 15 (in either order relative to each
+  other).
+- **`12-ldap-least-privilege.sh` before `17-remove-test-users.sh`, not
+  after** — 12's own verification step logs in as `alice` and `carol`
+  to *prove* the new ACL lockdown actually blocks/allows the right
+  things; if 17 has already deleted them, 12 has nothing to verify with
+  and fails. Do the LDAP lockdown while the test users still exist,
+  remove them last.
+- **`17-remove-test-users.sh` also needs `gerrit-bot` already set up**
+  first — that's a manual `ggadmin-user add gerrit-bot ...` command
+  (ADMIN.md's "Setting up the Gerrit service account"), not a numbered
+  script, since the existing day-2 tooling already does the whole job.
+
+Everything else (`11-set-service-credentials.sh`, `16-nginx-tls.sh`) has
+no ordering constraint against the others — run them whenever the
+credential you want to rotate exists, or whenever you want TLS.
+
+A reasonable full sequence, doing everything:
+
+```
+sudo bash scripts/hardening/13-postgresql.sh                 # prints GERRIT_DB_PW/GITEA_DB_PW
+sudo GERRIT_DB_PW='...' bash scripts/hardening/14-gerrit-postgresql.sh
+sudo GITEA_DB_PW='...'  bash scripts/hardening/15-gitea-postgresql.sh
+sudo bash scripts/hardening/16-nginx-tls.sh
+sudo LDAP_ADMIN_PW='...' ALICE_PW='...' CAROL_PW='...' \
+  bash scripts/hardening/12-ldap-least-privilege.sh
+sudo LDAP_ADMIN_PW='...' bash scripts/hardening/11-set-service-credentials.sh ldap-admin ldap-reader gitea-admin gerrit-replication
+# ^ prints a NEW ldap-admin password -- every '...' placeholder below
+# means that new value, not the one used above.
+# manual, not a script -- see ADMIN.md "Setting up the Gerrit service account":
+sudo LDAP_ADMIN_PW='...' ggadmin-user add gerrit-bot "Gerrit Service Account" gerrit-bot@tkos.co.il admins
+sudo LDAP_ADMIN_PW='...' GERRIT_ADMIN_PW='...' GITEA_ADMIN_PW='...' \
+  bash scripts/hardening/17-remove-test-users.sh
+```
+
+Each script's own header comment has the exact credentials it needs and
+where to get them; the status list below explains what each one does
+and why, not how to sequence them.
+
+### Status
 
 - [x] **Replace every `ChangeMe123!` credential** — done, via two
   tools with different scopes. Non-human "special" accounts (the LDAP

@@ -26,7 +26,7 @@
 # the throwaway test project is skip-if-exists too, so a rerun after
 # a successful run just re-verifies rather than erroring.
 set -euo pipefail
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../lib.sh"
 require_root
 
 SITE=/var/lib/gerrit
@@ -37,7 +37,7 @@ GITEA_ADMIN="gitea-admin"
 ORG="engineering"
 REPL_USER="gerrit-replication"
 REPL_PW="ChangeMe123!"   # test-lab only
-TEST_PW="ChangeMe123!"   # test-lab only, carol's LDAP password (see scripts/02-openldap.sh)
+TEST_PW="ChangeMe123!"   # test-lab only, carol's LDAP password (see scripts/install/02-openldap.sh)
 GERRIT_URL="http://127.0.0.1:8080"
 
 gitea_api() { curl -fsS -u "${GITEA_ADMIN}:${TEST_PW}" "$@"; }
@@ -121,7 +121,7 @@ log "ensured ${REPL_USER} is a member of ${ORG}/Replication."
 DEV_TEAM_ID=$(echo "$TEAMS_JSON" | python3 -c 'import json,sys
 teams=[t for t in json.load(sys.stdin) if t["name"]=="Developers"]
 print(teams[0]["id"] if teams else "")')
-[ -n "$DEV_TEAM_ID" ] || die "Developers team not found -- run scripts/06-gitea-ldap.sh first"
+[ -n "$DEV_TEAM_ID" ] || die "Developers team not found -- run scripts/install/06-gitea-ldap.sh first"
 gitea_api -X PATCH -H 'Content-Type: application/json' -d '{
     "description": "Plan/discuss access; code is a read-only Gerrit mirror.",
     "permission": "read",
@@ -150,7 +150,7 @@ BEFORE=$(md5sum "$SITE/etc/replication.config" 2>/dev/null || true)
 # "authentication not supported" when only a username was present in the
 # URL and the password had to come from secure.config -- this exact
 # user:pass@ pattern already works reliably elsewhere in this lab (the
-# git operations in scripts/05-gerrit-acl.sh and this script's own
+# git operations in scripts/install/05-gerrit-acl.sh and this script's own
 # smoke-test push below). replication.config is chmod'd 600 below since
 # it now holds a credential.
 rcfg remote.gitea.url "http://${REPL_USER}:${REPL_PW}@127.0.0.1:3000/${ORG}/\${name}.git"

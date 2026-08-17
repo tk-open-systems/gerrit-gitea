@@ -3,7 +3,7 @@
 # Run as root: sudo bash 01-prereqs.sh
 # Safe to rerun: apt-get install and useradd/install -d are all idempotent.
 set -euo pipefail
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../lib.sh"
 require_root
 
 apt-get update

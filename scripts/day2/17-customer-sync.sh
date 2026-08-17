@@ -25,8 +25,9 @@
 # branch's tree is a no-op.
 #
 # This is a maintainer workstation tool, not a target-host install
-# script, so unlike scripts/01-16 it does not source lib.sh (no root
-# requirement, no HOST_FQDN/BASE_DN relevance -- this can run from any
+# script, so unlike scripts/install and scripts/hardening it does not
+# source lib.sh (no root requirement, no HOST_FQDN/BASE_DN relevance --
+# this can run from any
 # machine with the two remotes configured).
 set -euo pipefail
 

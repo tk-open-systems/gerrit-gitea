@@ -13,7 +13,7 @@
 # is guarded by existence checks; pg_hba.conf gets the TCP-auth line
 # appended only if not already present.
 set -euo pipefail
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../lib.sh"
 require_root
 
 apt-get update
@@ -72,6 +72,6 @@ cat <<SUMMARY
   gerrit role password : ${GERRIT_DB_PW}
   gitea role password  : ${GITEA_DB_PW}
 
-Nothing persists these -- pass them to scripts/14 and scripts/15 (the
+Nothing persists these -- pass them to scripts/hardening/14 and scripts/hardening/15 (the
 Gerrit and Gitea migration scripts) when you run them.
 SUMMARY

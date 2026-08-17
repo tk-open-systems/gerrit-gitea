@@ -4,14 +4,14 @@
 #   ldap-admin          cn=admin -- the LDAP directory's own root bind
 #   ldap-reader         cn=ldap-reader,ou=services,... -- read-only
 #                       search bind for Gerrit/Gitea (only exists if
-#                       scripts/12-ldap-least-privilege.sh has run)
+#                       scripts/hardening/12-ldap-least-privilege.sh has run)
 #   gitea-admin         local Gitea instance-admin account
 #   gerrit-replication  local Gitea account the replication plugin
 #                       pushes as
 #
 # Everything else -- gerrit-bot, carol, alice, bob, or any other real
 # LDAP person under ou=people -- is a normal user account and goes
-# through scripts/18-user-lifecycle.sh (`ggadmin-user set-password
+# through scripts/day2/18-user-lifecycle.sh (`ggadmin-user set-password
 # <uid>`) instead. This script only covers what falls outside that:
 # the directory root itself, the ou=services bind account, and Gitea's
 # own local (non-LDAP) accounts.
@@ -28,7 +28,7 @@
 # Only ldap-reader needs an existing credential (LDAP_ADMIN_PW,
 # cn=admin's CURRENT password, to authenticate the change). The other
 # three need none: ldap-admin changes via SASL EXTERNAL as root against
-# the cn=config backend (the same mechanism scripts/12 uses), and
+# the cn=config backend (the same mechanism scripts/hardening/12 uses), and
 # gitea-admin/gerrit-replication change via the `gitea` CLI run as the
 # `gitea` OS user -- both need only root on this host.
 #
@@ -36,8 +36,8 @@
 # the account being changed, that stored copy is updated and the
 # affected service restarted too, so a password change never leaves a
 # service unable to search the directory. Which DN they're currently
-# bound as isn't guessed: scripts/06-gitea-ldap.sh always points both
-# at cn=admin, and scripts/12-ldap-least-privilege.sh always repoints
+# bound as isn't guessed: scripts/install/06-gitea-ldap.sh always points both
+# at cn=admin, and scripts/hardening/12-ldap-least-privilege.sh always repoints
 # BOTH at ldap-reader together, atomically -- so "does cn=ldap-reader
 # exist" is a reliable signal for which one currently applies. Changing
 # gerrit-replication's password similarly updates the copy embedded in
@@ -49,9 +49,9 @@
 # bind, or the gitea CLI call's own exit code), and any service whose
 # config got touched is confirmed to restart cleanly -- not a full
 # create-project-push-merge-verify cycle, since that's what
-# scripts/09-smoke-test.sh is already for.
+# scripts/install/09-smoke-test.sh is already for.
 set -euo pipefail
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../lib.sh"
 require_root
 
 [ $# -ge 1 ] || die "usage: $SCRIPT_NAME <account> [<account> ...]  -- account is one of: ldap-admin, ldap-reader, gitea-admin, gerrit-replication"
@@ -101,11 +101,11 @@ update_gerrit_ldap_bind() {
 # set on every update, not just bind-dn/bind-password: `update-ldap`
 # silently resets any omitted field (including group-sync settings) to
 # empty, confirmed the hard way once already (see
-# scripts/12-ldap-least-privilege.sh's comment on this exact gotcha).
+# scripts/hardening/12-ldap-least-privilege.sh's comment on this exact gotcha).
 update_gitea_ldap_bind() {
   local bind_dn=$1 new_pw=$2
   local id; id=$(gitea_ldap_source_id)
-  [ -n "$id" ] || die "could not find Gitea's LDAP auth source id -- has scripts/06-gitea-ldap.sh been run?"
+  [ -n "$id" ] || die "could not find Gitea's LDAP auth source id -- has scripts/install/06-gitea-ldap.sh been run?"
   local group_team_map
   group_team_map=$(printf '{"cn=developers,ou=groups,%s":{"%s":["Developers"]},"cn=admins,ou=groups,%s":{"%s":["Owners"]}}' \
     "$BASE_DN" "$ORG" "$BASE_DN" "$ORG")
@@ -163,7 +163,7 @@ EOF
 }
 
 set_ldap_reader() {
-  reader_exists || die "cn=ldap-reader does not exist -- scripts/12-ldap-least-privilege.sh has not been run on this host, nothing to change"
+  reader_exists || die "cn=ldap-reader does not exist -- scripts/hardening/12-ldap-least-privilege.sh has not been run on this host, nothing to change"
   : "${LDAP_ADMIN_PW:?Set LDAP_ADMIN_PW to cn=admin current password, needed to authenticate this change}"
   local new_pw=${NEW_LDAP_READER_PW:-$(gen_pw)}
   local hash; hash=$(/usr/sbin/slappasswd -s "$new_pw")

@@ -3,7 +3,7 @@
 # Run as root: sudo bash 16-nginx-tls.sh
 #
 # Adds HTTPS on :8453 (Gerrit) and :8454 (Gitea), alongside -- not
-# replacing -- the existing plain-HTTP :8090/:8091 from scripts/08.
+# replacing -- the existing plain-HTTP :8090/:8091 from scripts/install/08.
 # Purely additive on purpose: Gerrit's canonicalWebUrl, the replication
 # URL, and every script/doc in this project reference the http:// URLs,
 # and changing those is real production work (see SYSADMIN.md's real-
@@ -23,7 +23,7 @@
 # exists; the nginx site file is plain config, always just rewritten;
 # `nginx -t` validates before any reload.
 set -euo pipefail
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../lib.sh"
 require_root
 
 SSL_DIR="/etc/nginx/ssl"
@@ -47,7 +47,7 @@ else
 fi
 
 # Append HTTPS server blocks if not already present -- the HTTP blocks
-# from scripts/08-nginx.sh stay exactly as they are.
+# from scripts/install/08-nginx.sh stay exactly as they are.
 if grep -q "listen 8453 ssl" "$SITE_FILE" 2>/dev/null; then
   log "HTTPS server blocks already present in ${SITE_FILE}"
 else

@@ -20,7 +20,7 @@
 # config edits go through `git config -f`, which replaces keys in
 # place instead of appending duplicates.
 set -euo pipefail
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../lib.sh"
 require_root
 
 GERRIT_VERSION="3.14.2"
@@ -28,7 +28,7 @@ GERRIT_MD5="5f0964143e03121b5f547f29f1af91e1"
 EXTERNAL_PORT="8090"   # nginx will listen here and proxy to 127.0.0.1:8080
 SITE=/var/lib/gerrit
 LDAP_BIND_DN="cn=admin,${BASE_DN}"
-LDAP_BIND_PW="ChangeMe123!"   # test-lab only, see scripts/02-openldap.sh
+LDAP_BIND_PW="ChangeMe123!"   # test-lab only, see scripts/install/02-openldap.sh
 
 install -d -o gerrit -g gerrit -m 750 "$SITE"
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Production hardening: migrate Gerrit off H2 onto PostgreSQL.
-# Run as root, passing the gerrit role's password from scripts/13:
+# Run as root, passing the gerrit role's password from scripts/hardening/13:
 #
 #   sudo GERRIT_DB_PW='...' CAROL_PW='...' \
 #     bash 14-gerrit-postgresql.sh
@@ -32,10 +32,10 @@
 # program is safe to run again (source is unchanged H2, target
 # gets re-migrated); systemctl stop/start are idempotent.
 set -euo pipefail
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../lib.sh"
 require_root
 
-: "${GERRIT_DB_PW:?Set GERRIT_DB_PW to the gerrit Postgres roles password from scripts/13}"
+: "${GERRIT_DB_PW:?Set GERRIT_DB_PW to the gerrit Postgres roles password from scripts/hardening/13}"
 : "${CAROL_PW:?Set CAROL_PW to carols current password}"
 
 SITE=/var/lib/gerrit

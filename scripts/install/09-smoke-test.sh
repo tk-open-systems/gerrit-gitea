@@ -3,7 +3,7 @@
 # Run as root: sudo bash 09-smoke-test.sh
 #
 # Phases 4-7 already proved push -> review -> submit -> replicate
-# repeatedly (via scripts/07-replication.sh's own verification step).
+# repeatedly (via scripts/install/07-replication.sh's own verification step).
 # The one piece of WORKFLOW.md's design not yet exercised is section 3:
 # a Gerrit commit trailer ("Fixes org/repo#N") auto-closing the linked
 # Gitea issue once the replicated push lands on the default branch.
@@ -18,10 +18,10 @@
 # run, because reusing a previously-closed issue would let a rerun
 # "pass" without actually exercising the auto-close mechanism again.
 set -euo pipefail
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../lib.sh"
 require_root
 
-TEST_PW="ChangeMe123!"   # test-lab only, see scripts/02-openldap.sh
+TEST_PW="ChangeMe123!"   # test-lab only, see scripts/install/02-openldap.sh
 GERRIT_URL="http://127.0.0.1:8080"
 GITEA_URL="http://127.0.0.1:3000"
 ORG="engineering"
@@ -32,7 +32,7 @@ gitea_api() { curl -fsS -u "carol:${TEST_PW}" "$@"; }
 # --- 1. open a fresh Gitea issue ---
 STAMP=$(date -u +%FT%TZ)
 ISSUE_JSON=$(gitea_api -X POST -H 'Content-Type: application/json' \
-  -d "{\"title\": \"Smoke test issue (${STAMP})\", \"body\": \"Opened by scripts/09-smoke-test.sh to verify the Fixes-trailer auto-close flow.\"}" \
+  -d "{\"title\": \"Smoke test issue (${STAMP})\", \"body\": \"Opened by scripts/install/09-smoke-test.sh to verify the Fixes-trailer auto-close flow.\"}" \
   "${GITEA_URL}/api/v1/repos/${ORG}/${PROJECT}/issues")
 ISSUE_NUM=$(echo "$ISSUE_JSON" | python3 -c 'import json,sys; print(json.load(sys.stdin)["number"])')
 log "opened Gitea issue ${ORG}/${PROJECT}#${ISSUE_NUM}"

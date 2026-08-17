@@ -14,33 +14,33 @@ All nine phases below are scripted, idempotent (safe to rerun), and verified
 working end to end on the test host, including a real push → review →
 submit → replicate → issue-auto-close cycle.
 
-- [x] `scripts/01-prereqs.sh` — packages, `gerrit`/`gitea` system users
-- [x] `scripts/02-openldap.sh` — test OpenLDAP directory
-- [x] `scripts/03-gitea.sh` — Gitea install
-- [x] `scripts/04-gerrit.sh` — Gerrit install, LDAP auth
-- [x] `scripts/05-gerrit-acl.sh` — Gerrit authorization bound to an LDAP group
-- [x] `scripts/06-gitea-ldap.sh` — Gitea LDAP source + group-to-team sync
-- [x] `scripts/07-replication.sh` — Gerrit → Gitea replication
-- [x] `scripts/08-nginx.sh` — reverse proxy
-- [x] `scripts/09-smoke-test.sh` — full end-to-end verification
-- [x] `scripts/10-delete-project-plugin.sh` — enables Gerrit's
+- [x] `scripts/install/01-prereqs.sh` — packages, `gerrit`/`gitea` system users
+- [x] `scripts/install/02-openldap.sh` — test OpenLDAP directory
+- [x] `scripts/install/03-gitea.sh` — Gitea install
+- [x] `scripts/install/04-gerrit.sh` — Gerrit install, LDAP auth
+- [x] `scripts/install/05-gerrit-acl.sh` — Gerrit authorization bound to an LDAP group
+- [x] `scripts/install/06-gitea-ldap.sh` — Gitea LDAP source + group-to-team sync
+- [x] `scripts/install/07-replication.sh` — Gerrit → Gitea replication
+- [x] `scripts/install/08-nginx.sh` — reverse proxy
+- [x] `scripts/install/09-smoke-test.sh` — full end-to-end verification
+- [x] `scripts/install/10-delete-project-plugin.sh` — enables Gerrit's
       `delete-project` plugin (bundled in the WAR, not installed by phase
       4), used by the project-deletion procedure in [ADMIN.md](ADMIN.md)
-- [x] `scripts/11-set-service-credentials.sh` — sets/changes the
+- [x] `scripts/hardening/11-set-service-credentials.sh` — sets/changes the
       password for one or more of the non-human "special" accounts
       (`ldap-admin`, `ldap-reader`, `gitea-admin`, `gerrit-replication`)
       individually; see Production Hardening below for what's done vs.
       not
-- [x] `scripts/12-ldap-least-privilege.sh` — locks down the directory's
+- [x] `scripts/hardening/12-ldap-least-privilege.sh` — locks down the directory's
       previously-nonexistent ACLs and adds a dedicated read-only bind
       account for Gerrit/Gitea
-- [x] `scripts/13-postgresql.sh` — installs PostgreSQL, one isolated
+- [x] `scripts/hardening/13-postgresql.sh` — installs PostgreSQL, one isolated
       database + role per service
-- [x] `scripts/14-gerrit-postgresql.sh` — migrates Gerrit's
+- [x] `scripts/hardening/14-gerrit-postgresql.sh` — migrates Gerrit's
       AccountPatchReviewDb off H2
-- [x] `scripts/15-gitea-postgresql.sh` — migrates Gitea off SQLite,
+- [x] `scripts/hardening/15-gitea-postgresql.sh` — migrates Gitea off SQLite,
       preserving all data
-- [x] `scripts/16-nginx-tls.sh` — self-signed HTTPS on `:8453`/`:8454`,
+- [x] `scripts/hardening/16-nginx-tls.sh` — self-signed HTTPS on `:8453`/`:8454`,
       additive alongside the existing plain-HTTP `:8090`/`:8091`
 - [ ] Production hardening beyond what's listed above (see below) — not
       done, this is a lab install
@@ -134,19 +134,45 @@ on every invocation, so there's nothing to separately "source" yourself — edit
 the values is the only step).
 
 ```
-sudo bash scripts/01-prereqs.sh
-sudo bash scripts/02-openldap.sh
-sudo bash scripts/03-gitea.sh
-sudo bash scripts/04-gerrit.sh
-sudo bash scripts/05-gerrit-acl.sh
-sudo bash scripts/06-gitea-ldap.sh
-sudo bash scripts/07-replication.sh
-sudo bash scripts/08-nginx.sh
-sudo bash scripts/09-smoke-test.sh
+sudo bash scripts/install/01-prereqs.sh
+sudo bash scripts/install/02-openldap.sh
+sudo bash scripts/install/03-gitea.sh
+sudo bash scripts/install/04-gerrit.sh
+sudo bash scripts/install/05-gerrit-acl.sh
+sudo bash scripts/install/06-gitea-ldap.sh
+sudo bash scripts/install/07-replication.sh
+sudo bash scripts/install/08-nginx.sh
+sudo bash scripts/install/09-smoke-test.sh
 ```
 
-Each has a comment block at the top explaining what it does and why; read
-those rather than this doc if you need the exact commands.
+**That's it — `09-smoke-test.sh` is the last required step**, and
+`scripts/install/` (this directory) is now fully done. It runs a full
+push → review → submit → replicate → issue-auto-close cycle, so a
+clean exit there means you have a complete, working installation.
+Everything in the other `scripts/` subdirectories is optional, and
+each one serves a different purpose rather than continuing the same
+sequence:
+
+- **`scripts/install/10-delete-project-plugin.sh`** — the one script
+  left in `install/` after the required run above, since it's still a
+  one-time setup step, just an optional one: it enables the Gerrit
+  plugin `ggadmin-project delete` needs (ADMIN.md section 2). Skip it
+  until you actually need to delete a project.
+- **`scripts/hardening/`** (`11` through `16`) — production hardening
+  (credential rotation, LDAP least-privilege, PostgreSQL migration,
+  self-signed TLS). See "Production hardening" below; recommended
+  before real use, not needed for a lab.
+- **`scripts/day2/`** — ongoing/Day-2 tooling, not setup:
+  `17-customer-sync.sh` runs as needed, not once; `18`/`19` are the
+  `ggadmin-user`/`ggadmin-project` admin CLIs (ADMIN.md), and
+  `20-install-ggadmin-tools.sh` symlinks them onto PATH — worth running
+  once if you want those commands available, but not required for the
+  install itself to work.
+- **`scripts/teardown/`** (`21`/`22`) — the opposite of installing —
+  see "Tearing down the installation" below.
+
+Each script has a comment block at the top explaining what it does and
+why; read those rather than this doc if you need the exact commands.
 
 ### Fixing a wrong `HOST_FQDN` after the fact
 
@@ -159,7 +185,7 @@ If you already ran scripts with the wrong host label (same domain, so
    pick up the fix. Edit `DOMAIN`, `ROOT_URL`, and `SSH_DOMAIN` in
    `/etc/gitea/app.ini` by hand, then `systemctl restart gitea`.
 3. `04-gerrit.sh`'s config writes go through `git config -f`, which *does*
-   update in place on rerun: `sudo bash scripts/04-gerrit.sh` correctly
+   update in place on rerun: `sudo bash scripts/install/04-gerrit.sh` correctly
    rewrites `canonicalWebUrl`. It won't restart Gerrit itself if already
    active (it only logs a reminder) -- run `systemctl restart gerrit`
    afterward.
@@ -225,14 +251,14 @@ These cost real debugging time; they're recorded here so the next person
     internal `Administrators` group.** Useful for bootstrapping (log in as
     an LDAP `admins`-group user first), but it's a one-time trick tied to
     one account, not a durable mapping — bind `ldap/<group-dn>` directly
-    into `All-Projects`' ACL (as `scripts/05-gerrit-acl.sh` does) so
+    into `All-Projects`' ACL (as `scripts/install/05-gerrit-acl.sh` does) so
     *membership in the LDAP group* is the actual source of truth for who
     gets Gerrit admin rights.
 11. **Gitea's team-edit API silently discards a partial `PATCH`.** Sending
     `{"includes_all_repositories": true}` alone returns `HTTP 200` with the
     field still `false` in the response — no error, nothing to notice
     unless you actually read the response back. This bit us for real: an
-    earlier version of `scripts/07-replication.sh` sent exactly that
+    earlier version of `scripts/install/07-replication.sh` sent exactly that
     partial PATCH, every subsequent script run kept logging success, and
     the `Developers` team's grant silently never took effect — LDAP
     developers got `404` on the mirrored repo, its issues, *and* its wiki
@@ -242,7 +268,7 @@ These cost real debugging time; they're recorded here so the next person
     afterward rather than trusting the HTTP status code — which is exactly
     what the fixed script now does.
 12. **This directory had no explicit ACLs at all until
-    `scripts/12-ldap-least-privilege.sh`**, running on OpenLDAP's
+    `scripts/hardening/12-ldap-least-privilege.sh`**, running on OpenLDAP's
     compiled-in default: `userPassword` was protected, but every other
     attribute — names, emails, group membership — was readable by a fully
     anonymous, unauthenticated bind. Confirmed live before fixing it:
@@ -304,9 +330,9 @@ This lab intentionally cut corners a production install shouldn't. Status:
 
 - [x] **Replace every `ChangeMe123!` credential** — done, via two
   tools with different scopes. Non-human "special" accounts (the LDAP
-  admin bind, the `ldap-reader` search bind if `scripts/12` has been
-  run, and Gitea's two local accounts `gitea-admin`/
-  `gerrit-replication`) go through `scripts/11-set-service-credentials.sh
+  admin bind, the `ldap-reader` search bind if `scripts/hardening/12`
+  has been run, and Gitea's two local accounts `gitea-admin`/
+  `gerrit-replication`) go through `scripts/hardening/11-set-service-credentials.sh
   <account> [<account> ...]`, one or more at a time — it updates every
   place each account's password is stored (Gerrit's `secure.config`/
   `replication.config`, Gitea's LDAP auth source) and restarts whatever
@@ -315,8 +341,8 @@ This lab intentionally cut corners a production install shouldn't. Status:
   named account under `ou=people`) go through `ggadmin-user
   set-password <uid>` instead (ADMIN.md section 1) — not this script,
   since they're not "special" accounts. **After running either against
-  a fresh install, `scripts/02` through `scripts/10` can no longer be
-  blindly rerun**, since they hard-code the `ChangeMe123!` credentials
+  a fresh install, `scripts/install/02` through `scripts/install/10`
+  can no longer be blindly rerun**, since they hard-code the `ChangeMe123!` credentials
   these tools replace; that's expected, their job (bootstrap the lab)
   is already done. The lab's `alice`/`bob`/`carol` test users aren't
   "special" either, and shouldn't survive into Day-2 at all — see
@@ -325,9 +351,9 @@ This lab intentionally cut corners a production install shouldn't. Status:
   the only members of the `developers` LDAP group, so removing both
   means deleting that group too, not just the users.
 - [x] **Dedicated, least-privilege LDAP bind account** — done, via
-  `scripts/12-ldap-least-privilege.sh`. Replaced the directory admin DN
+  `scripts/hardening/12-ldap-least-privilege.sh`. Replaced the directory admin DN
   Gerrit/Gitea had been reusing (a deliberate shortcut during initial
-  setup, see `scripts/02-openldap.sh`) with `cn=ldap-reader`, and — since
+  setup, see `scripts/install/02-openldap.sh`) with `cn=ldap-reader`, and — since
   the directory had no explicit ACLs at all before this, running on
   OpenLDAP's wide-open compiled-in default — locked down anonymous access
   too. See SYSADMIN gotcha 12 for the real discovery this took: a naive
@@ -335,10 +361,10 @@ This lab intentionally cut corners a production install shouldn't. Status:
   reuses one connection across the login flow and ends up running the
   group-membership search as the logging-in user, not the reader.
 - [ ] **Point at a real corporate LDAP/OIDC directory** instead of the
-  local `slapd` from `scripts/02-openldap.sh`. Can't be executed on this
+  local `slapd` from `scripts/install/02-openldap.sh`. Can't be executed on this
   lab host (no real directory to point at), but the change itself is
-  small and localized: `scripts/04-gerrit.sh`'s `ldap.server`/
-  `ldap.accountBase`/`ldap.groupBase`/etc. and `scripts/06-gitea-ldap.sh`'s
+  small and localized: `scripts/install/04-gerrit.sh`'s `ldap.server`/
+  `ldap.accountBase`/`ldap.groupBase`/etc. and `scripts/install/06-gitea-ldap.sh`'s
   `add-ldap` flags both need to match your real directory's schema (base
   DNs, the attribute holding group membership, whether it uses
   `groupOfNames`/`member` like this lab or something else e.g.
@@ -347,7 +373,7 @@ This lab intentionally cut corners a production install shouldn't. Status:
   Everything downstream (Gerrit ACLs bound to `ldap/<dn>` groups, Gitea's
   group-to-team sync) is structurally identical either way; only the
   connection details change.
-- [x] **TLS termination on nginx** — partially done. `scripts/16-nginx-tls.sh`
+- [x] **TLS termination on nginx** — partially done. `scripts/hardening/16-nginx-tls.sh`
   adds self-signed HTTPS on `:8453`/`:8454`, purely additive alongside the
   existing plain-HTTP `:8090`/`:8091`, to demonstrate TLS termination
   actually works (verified live) without touching anything that currently
@@ -364,8 +390,8 @@ This lab intentionally cut corners a production install shouldn't. Status:
   (trusting forwarded headers from a reverse proxy), so no other
   Gerrit-side change is needed.
 - [x] **Move Gerrit off H2 and Gitea off SQLite onto PostgreSQL** — done,
-  via `scripts/13-postgresql.sh`, `scripts/14-gerrit-postgresql.sh`, and
-  `scripts/15-gitea-postgresql.sh`. Neither turned out to be a simple
+  via `scripts/hardening/13-postgresql.sh`, `scripts/hardening/14-gerrit-postgresql.sh`, and
+  `scripts/hardening/15-gitea-postgresql.sh`. Neither turned out to be a simple
   config-and-restart, as originally guessed in this section — see
   gotchas 13-15 for what each actually took, including a real data
   migration for Gitea (verified specific records survived across
@@ -380,26 +406,28 @@ gated by a confirmation prompt (type the host's `HOST_FQDN` to
 proceed, or pass `--yes` for scripted use) since neither is
 reversible:
 
-- **`scripts/21-teardown-data.sh`** — stops and removes everything
-  gg-specific: the `gerrit`/`gitea` systemd services and their
-  installed binaries, `/var/lib/gerrit`, `/var/lib/gitea`, `/etc/gitea`
-  (every project, review, repo, issue, and wiki page — not just lab
-  test data), the whole LDAP `ou=people`/`ou=groups`/`ou=services` tree
-  under `BASE_DN`, the `gerritdb`/`giteadb` PostgreSQL roles and
-  databases if `scripts/13-15` were ever run, this project's nginx
-  site config and self-signed TLS certs, the `gerrit`/`gitea` system
-  users, and the `ggadmin-*` symlinks from `scripts/20`. Needs
-  `LDAP_ADMIN_PW` if slapd is still running (same credential
-  `scripts/18` uses). Leaves the underlying packages installed.
-- **`scripts/22-teardown-packages.sh`** — run after the above (it
+- **`scripts/teardown/21-teardown-data.sh`** — stops and removes
+  everything gg-specific: the `gerrit`/`gitea` systemd services and
+  their installed binaries, `/var/lib/gerrit`, `/var/lib/gitea`,
+  `/etc/gitea` (every project, review, repo, issue, and wiki page — not
+  just lab test data), the whole LDAP `ou=people`/`ou=groups`/
+  `ou=services` tree under `BASE_DN`, the `gerritdb`/`giteadb`
+  PostgreSQL roles and databases if `scripts/hardening/13-15` were ever
+  run, this project's nginx site config and self-signed TLS certs, the
+  `gerrit`/`gitea` system users, and the `ggadmin-*` symlinks from
+  `scripts/day2/20`. Needs `LDAP_ADMIN_PW` if slapd is still running
+  (same credential `scripts/day2/18` uses). Leaves the underlying
+  packages installed.
+- **`scripts/teardown/22-teardown-packages.sh`** — run after the above (it
   refuses to proceed if the `gerrit`/`gitea` systemd units or system
   users still exist, unless `--force` is passed). `apt-get purge`s
   `nginx`, `slapd`/`ldap-utils`, every installed `postgresql*` package,
-  and `openjdk-21-jre-headless` — the packages `scripts/01`/`13`
-  installed solely for this project — plus their config/data
-  directories as a fallback in case a purge leaves them behind.
+  and `openjdk-21-jre-headless` — the packages
+  `scripts/install/01`/`scripts/hardening/13` installed solely for this
+  project — plus their config/data directories as a fallback in case a
+  purge leaves them behind.
 
-Both scripts are idempotent the same way `scripts/01-20` are: a
+Both scripts are idempotent the same way every other script here is: a
 target that's already gone is logged and skipped, not treated as an
 error, so a teardown interrupted partway through (or run twice) just
 finishes the rest instead of failing. **Apache2 on `:80` predates this

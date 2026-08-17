@@ -83,7 +83,7 @@ Use Gerrit's **replication plugin**, not Gitea's pull-mirror:
   `Fixes org/repo#123`. Gitea parses closing keywords on any push that
   lands commits on the default branch, including pushes from the
   replication bot, so a merged Gerrit change auto-closes the linked
-  Gitea issue — confirmed working end to end in `scripts/09-smoke-test.sh`
+  Gitea issue — confirmed working end to end in `scripts/install/09-smoke-test.sh`
   (issue closed ~12s after Gerrit submit).
 
   **It does not, however, move the issue's card on a Gitea Projects

@@ -8,12 +8,12 @@
 # plugin is only (re)loaded via a Gerrit restart if it wasn't already
 # active.
 set -euo pipefail
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../lib.sh"
 require_root
 
 SITE=/var/lib/gerrit
 GERRIT_URL="http://127.0.0.1:8080"
-TEST_PW="ChangeMe123!"   # test-lab only, see scripts/02-openldap.sh
+TEST_PW="ChangeMe123!"   # test-lab only, see scripts/install/02-openldap.sh
 
 sudo -u gerrit unzip -o -q "$SITE/bin/gerrit.war" WEB-INF/plugins/delete-project.jar -d "$SITE"
 sudo -u gerrit mv "$SITE/WEB-INF/plugins/delete-project.jar" "$SITE/plugins/delete-project.jar"

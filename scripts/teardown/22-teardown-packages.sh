@@ -1,24 +1,24 @@
 #!/usr/bin/env bash
 # Tear down the gg (Gerrit/Gitea) installation, phase 2 of 2: purge the
-# packages scripts/01-prereqs.sh and scripts/13-postgresql.sh installed
+# packages scripts/install/01-prereqs.sh and scripts/hardening/13-postgresql.sh installed
 # solely for this project -- nginx, slapd + ldap-utils, every
 # postgresql* package, and openjdk-21-jre-headless -- plus their
 # leftover config/data directories.
 #
-# Run as root, AFTER scripts/21-teardown-data.sh:
+# Run as root, AFTER scripts/teardown/21-teardown-data.sh:
 #   sudo bash 22-teardown-packages.sh [--yes] [--force]
 #
 # Refuses to run if the gerrit/gitea systemd services or system users
-# still exist, since that means scripts/21 hasn't been (fully) run --
+# still exist, since that means scripts/teardown/21 hasn't been (fully) run --
 # purging java/postgresql/slapd out from under a still-configured
 # Gerrit/Gitea would just leave a broken half-removed mess instead of
 # a clean host. Pass --force to override (e.g. Gerrit/Gitea were never
 # actually installed and you just want these packages gone).
 #
-# DESTRUCTIVE AND IRREVERSIBLE, and wider-reaching than scripts/21:
+# DESTRUCTIVE AND IRREVERSIBLE, and wider-reaching than scripts/teardown/21:
 # this changes host-wide package state, not just this project's data.
 # If anything else on this host started depending on nginx/postgresql/
-# slapd/java after scripts/01/13 installed them here, this breaks it.
+# slapd/java after scripts/install/01 / scripts/hardening/13 installed them here, this breaks it.
 # Requires typing the host's FQDN to confirm, unless --yes is passed.
 #
 # Safe to rerun: purging an already-purged package is a dpkg/apt
@@ -26,7 +26,7 @@
 #
 # Apache2 on :80 predates this project and is never touched.
 set -euo pipefail
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../lib.sh"
 require_root
 
 CONFIRM=0
@@ -44,7 +44,7 @@ if [ "$FORCE" -ne 1 ]; then
     user=${pair%%:*}
     unit=${pair##*:}
     if id "$user" >/dev/null 2>&1 || [ -f "$unit" ]; then
-      die "system user '${user}' or ${unit} still exists -- run scripts/21-teardown-data.sh first (or pass --force to purge packages anyway)."
+      die "system user '${user}' or ${unit} still exists -- run scripts/teardown/21-teardown-data.sh first (or pass --force to purge packages anyway)."
     fi
   done
 fi
@@ -60,7 +60,7 @@ About to apt-get purge:
 
 This does NOT touch Apache2 on :80. It DOES change host-wide package
 state -- anything else on this host that started depending on these
-packages after scripts/01/13 installed them will break.
+packages after scripts/install/01 / scripts/hardening/13 installed them will break.
 
 Type the host's FQDN (${HOST_FQDN}) to confirm, or rerun with --yes:
 EOF
@@ -90,8 +90,8 @@ purge_matching '^openjdk-21-jre-headless$'
 
 # Belt-and-suspenders: apt purge normally removes these, but a
 # manually-created directory (slapd's own database dir, config edited
-# by scripts/12/13) can survive if a purge prompt was ever answered
-# "keep" in the past, and scripts/21 already deleted the actual LDAP
+# by scripts/hardening/12 / scripts/hardening/13) can survive if a purge prompt was ever answered
+# "keep" in the past, and scripts/teardown/21 already deleted the actual LDAP
 # entries and DB roles/databases anyway -- there is no live data left
 # to lose here.
 rm -rf /etc/ldap /var/lib/ldap

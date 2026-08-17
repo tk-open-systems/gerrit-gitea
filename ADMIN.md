@@ -14,9 +14,10 @@ they don't need root on the Gerrit/Gitea host at all; only the one plugin
 install below does.
 
 **Everything below is now also wrapped as scripts** —
-`scripts/18-user-lifecycle.sh` (section 1) and
-`scripts/19-project-lifecycle.sh` (section 2), run as root on the
-Gerrit/Gitea host the same way as `scripts/01-17`. They encode every
+`scripts/day2/18-user-lifecycle.sh` (section 1) and
+`scripts/day2/19-project-lifecycle.sh` (section 2), run as root on the
+Gerrit/Gitea host the same way as every other numbered script here.
+They encode every
 gotcha this file documents (the Gerrit/Gitea sync asymmetry, the two
 required Gitea follow-ups on project creation, the Gerrit
 `is:inactive`-readback quirk, ...) instead of leaving it to a human to
@@ -25,12 +26,12 @@ in full since they're what the scripts actually run, and the prose
 around them (why each step exists, what surprised us) is the part a
 script can't carry — but for real operations, prefer the script.
 
-Run `sudo bash scripts/20-install-ggadmin-tools.sh` once to symlink
+Run `sudo bash scripts/day2/20-install-ggadmin-tools.sh` once to symlink
 them onto PATH under short names — `ggadmin-user` and
 `ggadmin-project` — so `sudo ggadmin-user offboard dave` works from
 anywhere without a `scripts/` path. That's what the rest of this file
 calls them as; before installing, substitute the full
-`scripts/18-user-lifecycle.sh` / `scripts/19-project-lifecycle.sh`
+`scripts/day2/18-user-lifecycle.sh` / `scripts/day2/19-project-lifecycle.sh`
 path instead.
 
 ### Required credentials, per command
@@ -40,7 +41,7 @@ has to be passed in on every invocation, as an env var on the `sudo`
 command line (sudo strips plain env vars otherwise; see each script's
 header for the exact syntax, or just run the command without them once
 — the error message gives you the exact fix). `LDAP_ADMIN_PW` and
-`GITEA_ADMIN_PW` are whatever `scripts/11-set-service-credentials.sh
+`GITEA_ADMIN_PW` are whatever `scripts/hardening/11-set-service-credentials.sh
 ldap-admin` / `... gitea-admin` last set them to, or still the install
 default `ChangeMe123!` if that was never run; `GERRIT_ADMIN_PW` is
 whatever `ggadmin-user add gerrit-bot ...` or
@@ -73,9 +74,9 @@ where to reset one.
   directory superuser (`olcRootPW` on the config backend), not a person
   entry under `ou=people` and not a member of any group. It bypasses
   every ACL by being the directory root, so it has no connection to
-  group membership at all. Set at bootstrap by `scripts/02-openldap.sh`
+  group membership at all. Set at bootstrap by `scripts/install/02-openldap.sh`
   (lab default `ChangeMe123!`); changed by
-  `scripts/11-set-service-credentials.sh ldap-admin` via
+  `scripts/hardening/11-set-service-credentials.sh ldap-admin` via
   `ldapmodify -Y EXTERNAL` against the `cn=config` backend over
   `ldapi:///` (SASL EXTERNAL auth as root, not a regular LDAP bind).
 
@@ -83,8 +84,8 @@ where to reset one.
   LDAP password of whichever LDAP account `GERRIT_ADMIN_USER` names**
   (default `gerrit-bot`, a dedicated service account — see "Setting up
   the Gerrit service account" below for why). Gerrit's `auth.type=LDAP`
-  plus `auth.gitBasicAuthPolicy=LDAP` (`scripts/04-gerrit.sh`,
-  `scripts/05-gerrit-acl.sh`) means Gerrit validates REST/git-over-HTTP
+  plus `auth.gitBasicAuthPolicy=LDAP` (`scripts/install/04-gerrit.sh`,
+  `scripts/install/05-gerrit-acl.sh`) means Gerrit validates REST/git-over-HTTP
   credentials directly against LDAP bind — nothing is stored in Gerrit
   itself to rotate independently. The only way to change it is to
   change that account's LDAP `userPassword`
@@ -92,10 +93,10 @@ where to reset one.
 
 - **`GITEA_ADMIN_PW`** is the password for `gitea-admin`, a **local
   Gitea-only account, deliberately not LDAP-backed**
-  (`scripts/03-gitea.sh`, `scripts/06-gitea-ldap.sh`) — a completely
+  (`scripts/install/03-gitea.sh`, `scripts/install/06-gitea-ldap.sh`) — a completely
   separate identity from LDAP, stored in Gitea's own database. Set at
-  bootstrap by `scripts/03-gitea.sh`; changed by
-  `scripts/11-set-service-credentials.sh gitea-admin` via Gitea's own
+  bootstrap by `scripts/install/03-gitea.sh`; changed by
+  `scripts/hardening/11-set-service-credentials.sh gitea-admin` via Gitea's own
   `gitea admin user change-password` CLI, which never touches LDAP.
 
 **Connection to group membership/roles — and it's asymmetric between
@@ -104,7 +105,7 @@ the two:**
 - Gerrit admin rights (`administrateServer`, the capability
   `GERRIT_ADMIN_PW`'s holder needs for these scripts to work at all)
   are **durably, live-derived from the LDAP `admins` group**:
-  `scripts/05-gerrit-acl.sh` adds `ldap/cn=admins,ou=groups,...`
+  `scripts/install/05-gerrit-acl.sh` adds `ldap/cn=admins,ou=groups,...`
   straight into `All-Projects`' ACL, and Gerrit resolves `ldap/<dn>`
   group references against LDAP on every request — no caching, no
   re-login needed. (The very first admin grant in this lab came from a
@@ -120,7 +121,7 @@ the two:**
 
 - Gitea *instance* admin (what `GITEA_ADMIN_PW` grants) has **no
   connection to LDAP or group membership at all, by design** —
-  `scripts/06-gitea-ldap.sh` says so explicitly: the LDAP-to-team
+  `scripts/install/06-gitea-ldap.sh` says so explicitly: the LDAP-to-team
   mapping intentionally does not grant Gitea instance admin, to keep
   that blast radius local-only. Emptying or deleting the `admins` LDAP
   group would not touch `gitea-admin` in any way. Separately (and easy
@@ -145,7 +146,7 @@ now default to it.
 It has to live under `ou=people` like a real person, not `ou=services`
 like the `ldap-reader` bind account (see "Required credentials, per
 command" above) — Gerrit's `ldap.accountPattern`
-(`scripts/04-gerrit.sh`) only recognizes `inetOrgPerson` entries under
+(`scripts/install/04-gerrit.sh`) only recognizes `inetOrgPerson` entries under
 `ou=people` as valid accounts, so an `ou=services` entry would never be
 able to log in as a Gerrit account at all. Given that, the existing
 `ggadmin-user add` command already does everything needed — no new
@@ -228,7 +229,7 @@ per tool.** Gerrit's `delete-project` isn't in the default build's UI
 at all, and that's deliberate conservatism, not an omission: Gerrit
 treats a project's review history as closer to a permanent record than
 a typical Git host does, so destroying it is gated behind an opt-in
-plugin (`scripts/10-delete-project-plugin.sh`) rather than a one-click
+plugin (`scripts/install/10-delete-project-plugin.sh`) rather than a one-click
 admin button — the friction is the point. Gitea, on the other hand,
 simply has no concept of an org-wide default applied to repos that
 don't exist yet. Branch protection *is* a real, fully-functional UI
@@ -311,7 +312,7 @@ time to find, so it's worth internalizing:
   restart.
 - **Gitea only resyncs team membership at login time** (or via the
   periodic `sync_external_users` cron task, enabled by
-  `--synchronize-users` in `scripts/06-gitea-ldap.sh`, default roughly
+  `--synchronize-users` in `scripts/install/06-gitea-ldap.sh`, default roughly
   daily). A user moved between LDAP groups keeps their *old* Gitea team
   membership until they log in again. To force it immediately rather than
   waiting: have them log in, or trigger one authenticated request as them
@@ -360,9 +361,10 @@ never rewrite history.
 
 ### Removing the lab test users (alice/bob/carol)
 
-`alice`/`bob`/`carol` (`scripts/02-openldap.sh`) exist purely to exercise
-LDAP groups, Gerrit ACL bootstrap, and Gitea team sync while
-`scripts/02` through `scripts/15` were being written and verified — they
+`alice`/`bob`/`carol` (`scripts/install/02-openldap.sh`) exist purely to
+exercise LDAP groups, Gerrit ACL bootstrap, and Gitea team sync while
+the install and hardening scripts (`scripts/install/02` through
+`scripts/hardening/15`) were being written and verified — they
 aren't real people and shouldn't still be sitting in the directory once
 this install moves into Day-2. Removing them is just the `offboard
 --delete-entry` procedure above, run against all three, but with one
@@ -422,15 +424,17 @@ After that, `ggadmin-user add <uid> <full name> <email>` (no explicit
 group) works again as documented above.
 
 As with any offboard, nothing in Gerrit/Gitea's own history is
-touched — commits `scripts/05`/`07`/`09`/`14` authored as `carol`
-during bootstrap keep her name/email in their history forever, same as
-any other offboarded user's past work. And as SYSADMIN.md's Production
-Hardening section notes: once these three are gone, several other
-scripts stop working too, since they authenticate as `carol` —
-`scripts/04`-`07`/`09`/`10` hardcode her original `ChangeMe123!`
-password, while `scripts/12`/`14`/`15` take `CAROL_PW` as a
-parameter instead but still need her account to exist at all. Expected
-either way — their job is already done, none of them are meant to be
+touched — commits `scripts/install/05`/`07`/`09` and
+`scripts/hardening/14` authored as `carol` during bootstrap keep her
+name/email in their history forever, same as any other offboarded
+user's past work. And as SYSADMIN.md's Production Hardening section
+notes: once these three are gone, several other scripts stop working
+too, since they authenticate as `carol` —
+`scripts/install/04`-`07`/`09`/`10` hardcode her original
+`ChangeMe123!` password, while `scripts/hardening/12`/`14`/`15` take
+`CAROL_PW` as a parameter instead but still need her account to exist
+at all. Expected either way — their job is already done, none of them
+are meant to be
 rerun against this already-bootstrapped host.
 
 ## 2. Project lifecycle
@@ -445,10 +449,10 @@ rerun against this already-bootstrapped host.
    and why.
 2. **No Gerrit or Gitea UI steps are required** for a standard project.
    Access control is inherited automatically: Gerrit ACLs come from
-   `All-Projects` (`scripts/05-gerrit-acl.sh`), and Gitea's
+   `All-Projects` (`scripts/install/05-gerrit-acl.sh`), and Gitea's
    `Developers`/`Owners`/`Replication` teams are org-wide
-   (`includes_all_repositories`, `scripts/06-gitea-ldap.sh`/
-   `scripts/07-replication.sh`), so both already apply to the new repo
+   (`includes_all_repositories`, `scripts/install/06-gitea-ldap.sh`/
+   `scripts/install/07-replication.sh`), so both already apply to the new repo
    with no per-project setup.
 3. Optional, UI-only, and only if your team actually wants them — none
    of this blocks developers from pushing to Gerrit:
@@ -461,7 +465,7 @@ rerun against this already-bootstrapped host.
 4. Only if this specific project needs access different from the
    org-wide default (rare):
    - Gerrit side: project's **Access** tab in the Gerrit UI, or edit
-     `refs/meta/config` directly (`scripts/05-gerrit-acl.sh` is a
+     `refs/meta/config` directly (`scripts/install/05-gerrit-acl.sh` is a
      scripted example of the latter).
    - Gitea side: repo → **Settings → Collaborators**, or add the repo
      to another team explicitly.
@@ -487,7 +491,7 @@ picks it up automatically — confirmed the mirror appears in Gitea's
 It lands **private by default** (Gitea's default for API/push-created
 repos); the `Developers`/`Owners`/`Replication` teams already apply to it
 automatically (they're org-wide via `includes_all_repositories`, set up in
-`scripts/06-gitea-ldap.sh`/`scripts/07-replication.sh`), but nobody outside
+`scripts/install/06-gitea-ldap.sh`/`scripts/install/07-replication.sh`), but nobody outside
 those teams can see it until/unless you change that.
 
 **One required follow-up step**, until this is automated: push-to-create
@@ -511,7 +515,7 @@ curl -u gitea-admin:ChangeMe123! -X PATCH -H 'Content-Type: application/json' \
 permissions alone do **not** make Code actually read-only for every human.
 Gitea org Owners always have full admin on every org repo — that's
 inherent to being an Owner, not something `units_map` can strip — so the
-`admins` LDAP group (mapped to Owners in `scripts/06-gitea-ldap.sh`)
+`admins` LDAP group (mapped to Owners in `scripts/install/06-gitea-ldap.sh`)
 retains real Code write access by default. Confirmed live: an Owner-team
 account force-pushed directly to a mirrored repo's `main`, completely
 bypassing Gerrit review, with no error. WORKFLOW.md section 2's original
@@ -550,7 +554,7 @@ labels) live in Gerrit's
 `project.config`, on the special `refs/meta/config` ref — editable via
 `PUT /a/projects/{name}/description`, the permissions REST endpoints, or by
 cloning/editing/pushing `refs/meta/config` directly (see
-`scripts/05-gerrit-acl.sh` for a scripted example of the latter).
+`scripts/install/05-gerrit-acl.sh` for a scripted example of the latter).
 
 **This metadata does not replicate to Gitea.** Replication only ever
 carries `refs/heads/*` and `refs/tags/*` (WORKFLOW.md section 2, by
@@ -564,8 +568,8 @@ set them there too, separately.
 Script: `ggadmin-project delete my-new-project` — does
 both steps below, in order, and skips a side that's already gone.
 Gerrit doesn't support this without the `delete-project` plugin (bundled in
-`gerrit.war` but not installed by `scripts/04-gerrit.sh` — enable it once
-via `scripts/10-delete-project-plugin.sh`). Then:
+`gerrit.war` but not installed by `scripts/install/04-gerrit.sh` — enable it once
+via `scripts/install/10-delete-project-plugin.sh`). Then:
 
 ```
 # 1. Gerrit first -- it's the source of truth; if this fails, nothing

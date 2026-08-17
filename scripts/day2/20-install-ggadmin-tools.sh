@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Installs the "Day-2" admin tools (scripts/18-user-lifecycle.sh,
-# scripts/19-project-lifecycle.sh) onto this host's PATH under short,
-# non-numeric names, as symlinks into /usr/local/sbin:
-#   /usr/local/sbin/ggadmin-user    -> scripts/18-user-lifecycle.sh
-#   /usr/local/sbin/ggadmin-project -> scripts/19-project-lifecycle.sh
+# Installs the "Day-2" admin tools (scripts/day2/18-user-lifecycle.sh,
+# scripts/day2/19-project-lifecycle.sh) onto this host's PATH under
+# short, non-numeric names, as symlinks into /usr/local/sbin:
+#   /usr/local/sbin/ggadmin-user    -> scripts/day2/18-user-lifecycle.sh
+#   /usr/local/sbin/ggadmin-project -> scripts/day2/19-project-lifecycle.sh
 #
 # /usr/local/sbin is the FHS/Debian-policy location for locally
 # installed root-only admin binaries that aren't managed by dpkg (FHS:
@@ -28,7 +28,7 @@
 # pre-existing file/symlink at the target path pointing somewhere else
 # is left alone too, with a warning, rather than clobbered.
 set -euo pipefail
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../lib.sh"
 require_root
 
 SCRIPTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

@@ -19,7 +19,7 @@
 # - the systemd unit is idempotently rewritten; the service is only
 #   (re)started if it isn't already active.
 set -euo pipefail
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../lib.sh"
 require_root
 
 GITEA_VERSION="1.27.1"

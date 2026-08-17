@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Production hardening: migrate Gitea off SQLite onto PostgreSQL.
-# Run as root, passing the gitea role's password from scripts/13:
+# Run as root, passing the gitea role's password from scripts/hardening/13:
 #
 #   sudo GITEA_DB_PW='...' GITEA_ADMIN_PW='...' CAROL_PW='...' \
 #     bash 15-gitea-postgresql.sh
@@ -58,10 +58,10 @@
 # first run; not fine once Postgres is the real system of record with
 # its own new data.
 set -euo pipefail
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../lib.sh"
 require_root
 
-: "${GITEA_DB_PW:?Set GITEA_DB_PW to the gitea Postgres roles password from scripts/13}"
+: "${GITEA_DB_PW:?Set GITEA_DB_PW to the gitea Postgres roles password from scripts/hardening/13}"
 : "${GITEA_ADMIN_PW:?Set GITEA_ADMIN_PW to gitea-admins current password}"
 : "${CAROL_PW:?Set CAROL_PW to carols current password}"
 

@@ -21,7 +21,7 @@
 # Needs GERRIT_ADMIN_PW and GITEA_ADMIN_PW (current passwords for the
 # gerrit-bot/gitea-admin admin accounts -- see ADMIN.md's "Setting up
 # the Gerrit service account" for why it's gerrit-bot and not a human's
-# own login -- set by scripts/11-set-service-credentials.sh gitea-admin
+# own login -- set by scripts/hardening/11-set-service-credentials.sh gitea-admin
 # for the other; there's no safe default here). sudo strips the
 # environment by default, so pass these on the sudo command line (sudo
 # still applies them under env_reset):
@@ -29,7 +29,7 @@
 #   sudo GERRIT_ADMIN_PW='...' GITEA_ADMIN_PW='...' \
 #     bash 19-project-lifecycle.sh add my-new-project "some description"
 #
-# delete additionally needs scripts/10-delete-project-plugin.sh already
+# delete additionally needs scripts/install/10-delete-project-plugin.sh already
 # run once (Gerrit has no delete support without it).
 #
 # Usage:
@@ -43,11 +43,12 @@
 # or by hand. delete is safe to rerun too: a side already gone is
 # skipped rather than erroring.
 set -euo pipefail
-# readlink -f (not just dirname "$BASH_SOURCE") because scripts/20 installs
-# this under /usr/local/sbin as a symlink -- BASH_SOURCE gives the symlink's
-# own path, not its target, so resolving it here is what lets lib.sh/
-# config.sh still be found next to the real file in scripts/.
-source "$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)/lib.sh"
+# readlink -f (not just dirname "$BASH_SOURCE") because scripts/day2/20
+# installs this under /usr/local/sbin as a symlink -- BASH_SOURCE gives the
+# symlink's own path, not its target, so resolving it here is what lets
+# lib.sh/config.sh still be found one directory up from the real file,
+# in scripts/.
+source "$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)/../lib.sh"
 require_root
 
 GERRIT_URL="http://127.0.0.1:8080"
@@ -82,7 +83,7 @@ ORIG_ARGS_Q=$(printf '%q ' "$@")
 
 if [ -z "${GERRIT_ADMIN_PW:-}" ] || [ -z "${GITEA_ADMIN_PW:-}" ]; then
   die "GERRIT_ADMIN_PW and GITEA_ADMIN_PW are not set (current passwords for ${GERRIT_ADMIN_USER} and ${GITEA_ADMIN_USER}).
-  Get them from: GERRIT_ADMIN_PW was printed once by whichever of "ggadmin-user add gerrit-bot ..." or "ggadmin-user set-password gerrit-bot" set it last (no bootstrap default -- it never was ChangeMe123!); GITEA_ADMIN_PW was printed by "scripts/11-set-service-credentials.sh gitea-admin" the last time that ran, or is still the install default ChangeMe123! if it never has.
+  Get them from: GERRIT_ADMIN_PW was printed once by whichever of "ggadmin-user add gerrit-bot ..." or "ggadmin-user set-password gerrit-bot" set it last (no bootstrap default -- it never was ChangeMe123!); GITEA_ADMIN_PW was printed by "scripts/hardening/11-set-service-credentials.sh gitea-admin" the last time that ran, or is still the install default ChangeMe123! if it never has.
   Then rerun this exact command with them set:
     GERRIT_ADMIN_PW=\"...\" GITEA_ADMIN_PW=\"...\" ${SCRIPT_NAME} ${ORIG_ARGS_Q}
   (invoking via sudo instead of already being root? put the same VAR=value pairs right after the word sudo, since sudo otherwise drops plain env vars: sudo GERRIT_ADMIN_PW=\"...\" GITEA_ADMIN_PW=\"...\" ${SCRIPT_NAME} ${ORIG_ARGS_Q})"
@@ -182,7 +183,7 @@ cmd_delete() {
     gerrit_api -X POST -H 'Content-Type: application/json' \
       -d '{"force": true, "preserve": false}' \
       "${GERRIT_URL}/a/projects/${project}/delete-project~delete" >/dev/null
-    log "deleted Gerrit project '${project}' (needs scripts/10-delete-project-plugin.sh already run once)"
+    log "deleted Gerrit project '${project}' (needs scripts/install/10-delete-project-plugin.sh already run once)"
   else
     log "Gerrit project '${project}' already gone, skipping"
   fi

@@ -32,7 +32,7 @@
 #
 # Gerrit and Gitea are then repointed from cn=admin (full directory
 # write access, reused for search convenience during initial setup --
-# see scripts/02-openldap.sh) to this read-only account, and every
+# see scripts/install/02-openldap.sh) to this read-only account, and every
 # claim here is verified by actually testing as the restricted role,
 # not by trusting that the ACL text looks right: anonymous and a
 # regular user (alice) are both confirmed unable to browse the
@@ -42,12 +42,12 @@
 # reader account) is reverified end to end.
 #
 # NOT safe to blindly rerun with the SAME generated password (it mints
-# a new one each time, like scripts/11) -- but every step is
+# a new one each time, like scripts/hardening/11) -- but every step is
 # idempotent/guarded (LDAP entries via ldap_add_if_missing, ACL via a
 # plain replace, config edits via git config -f), so rerunning just
 # rotates the reader account's password and re-verifies everything.
 set -euo pipefail
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../lib.sh"
 require_root
 
 ADMIN_DN="cn=admin,${BASE_DN}"
@@ -59,7 +59,7 @@ GERRIT_URL="http://127.0.0.1:8080"
 GITEA_URL="http://127.0.0.1:3000"
 
 # Current passwords, likely already rotated off the lab default by
-# scripts/11 -- nothing persists them anywhere, so they must be passed
+# scripts/hardening/11 -- nothing persists them anywhere, so they must be passed
 # in rather than hard-coded.
 : "${LDAP_ADMIN_PW:?Set LDAP_ADMIN_PW to the current cn=admin password}"
 : "${ALICE_PW:?Set ALICE_PW to alices current password}"
@@ -94,7 +94,7 @@ objectClass: organizationalRole
 objectClass: simpleSecurityObject
 cn: ldap-reader
 userPassword: ${READER_HASH}
-description: Bind-only account for Gerrit/Gitea directory searches -- read access only, see scripts/12-ldap-least-privilege.sh
+description: Bind-only account for Gerrit/Gitea directory searches -- read access only, see scripts/hardening/12-ldap-least-privilege.sh
 EOF
   log "created reader account ${READER_DN}"
 fi

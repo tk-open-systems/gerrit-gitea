@@ -13,7 +13,7 @@
 # before any reload, so a bad edit here fails loudly instead of taking
 # nginx down.
 set -euo pipefail
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../lib.sh"
 require_root
 
 SITE_FILE=/etc/nginx/sites-available/gerrit-gitea-lab.conf

@@ -28,12 +28,12 @@
 # via GET self is inherently idempotent; the ACL edit is skipped if
 # the target lines are already present in project.config.
 set -euo pipefail
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../lib.sh"
 require_root
 
 SITE=/var/lib/gerrit
 ADMINS_GROUP_DN="cn=admins,ou=groups,${BASE_DN}"
-TEST_PW="ChangeMe123!"   # test-lab only, see scripts/02-openldap.sh
+TEST_PW="ChangeMe123!"   # test-lab only, see scripts/install/02-openldap.sh
 GERRIT_URL="http://127.0.0.1:8080"
 
 cd "$SITE"

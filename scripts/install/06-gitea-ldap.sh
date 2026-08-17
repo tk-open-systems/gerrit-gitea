@@ -21,13 +21,13 @@
 # rerun of this script won't pick up edits to the flags below once the
 # source already exists, to avoid silently altering a live auth source).
 set -euo pipefail
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../lib.sh"
 require_root
 
 DEV_GROUP_DN="cn=developers,ou=groups,${BASE_DN}"
 ADMIN_GROUP_DN="cn=admins,ou=groups,${BASE_DN}"
 LDAP_BIND_DN="cn=admin,${BASE_DN}"
-TEST_PW="ChangeMe123!"   # test-lab only, see scripts/02-openldap.sh
+TEST_PW="ChangeMe123!"   # test-lab only, see scripts/install/02-openldap.sh
 GITEA_URL="http://127.0.0.1:3000"
 GITEA_ADMIN="gitea-admin"
 ORG="engineering"

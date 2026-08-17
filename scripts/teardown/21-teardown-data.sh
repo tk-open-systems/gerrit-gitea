@@ -2,14 +2,15 @@
 # Tear down the gg (Gerrit/Gitea) installation, phase 1 of 2: stop and
 # remove every gg-specific systemd service, binary, data/config
 # directory, LDAP entry, and PostgreSQL role/database created by
-# scripts/01-19 and the symlinks scripts/20 installed. Leaves the
-# underlying packages (openjdk, nginx, slapd, postgresql) installed --
-# see scripts/22-teardown-packages.sh to purge those too, once this
+# scripts/install, scripts/hardening, and scripts/day2/17-19, plus the
+# symlinks scripts/day2/20 installed. Leaves the underlying packages
+# (openjdk, nginx, slapd, postgresql) installed -- see
+# scripts/teardown/22-teardown-packages.sh to purge those too, once this
 # has run.
 #
 # Run as root: sudo LDAP_ADMIN_PW='...' bash 21-teardown-data.sh [--yes]
 #
-# LDAP_ADMIN_PW is cn=admin's current password (scripts/11's last run,
+# LDAP_ADMIN_PW is cn=admin's current password (scripts/hardening/11's last run,
 # or the install default ChangeMe123! if that was never run) -- needed
 # to delete the LDAP tree over the wire rather than touching slapd's
 # database files directly while it's running.
@@ -24,13 +25,13 @@
 #
 # Safe to rerun: every step checks whether its target exists first and
 # logs "already gone" instead of erroring, the same idempotent
-# convention scripts/01-20 use -- rerunning after a partial/interrupted
-# teardown just finishes the rest.
+# convention every other script in this project uses -- rerunning after
+# a partial/interrupted teardown just finishes the rest.
 #
 # Apache2 on :80 predates this project and is never touched, here or
-# in scripts/22.
+# in scripts/teardown/22.
 set -euo pipefail
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../lib.sh"
 require_root
 
 CONFIRM=0
@@ -50,7 +51,7 @@ About to PERMANENTLY remove:
   - the ggadmin-user/ggadmin-project symlinks in /usr/local/sbin
 
 Packages themselves (nginx, slapd, postgresql, openjdk) are left
-installed -- see scripts/22-teardown-packages.sh for that.
+installed -- see scripts/teardown/22-teardown-packages.sh for that.
 
 This does NOT touch Apache2 on :80.
 
@@ -67,7 +68,7 @@ fi
 # no reason to leave a run half-finished for a checkable precondition).
 if command -v ldapsearch >/dev/null 2>&1 && systemctl is-active --quiet slapd 2>/dev/null \
    && [ -z "${LDAP_ADMIN_PW:-}" ]; then
-  die "LDAP_ADMIN_PW is not set (cn=admin's current password -- scripts/11-set-service-credentials.sh ldap-admin's last run, or the install default ChangeMe123! if that was never run).
+  die "LDAP_ADMIN_PW is not set (cn=admin's current password -- scripts/hardening/11-set-service-credentials.sh ldap-admin's last run, or the install default ChangeMe123! if that was never run).
   Rerun with it set: sudo LDAP_ADMIN_PW='...' bash ${SCRIPT_NAME} --yes"
 fi
 
@@ -102,7 +103,7 @@ for pair in "ggadmin-user:18-user-lifecycle.sh" "ggadmin-project:19-project-life
   fi
 done
 
-# --- 3. PostgreSQL roles/databases, if scripts/13-15 were ever run ---
+# --- 3. PostgreSQL roles/databases, if scripts/hardening/13-15 were ever run ---
 if command -v psql >/dev/null 2>&1 && systemctl is-active --quiet postgresql 2>/dev/null; then
   for pair in "gerritdb:gerrit" "giteadb:gitea"; do
     db=${pair%%:*}
@@ -121,7 +122,7 @@ if command -v psql >/dev/null 2>&1 && systemctl is-active --quiet postgresql 2>/
     fi
   done
 else
-  log "PostgreSQL not installed/running -- skipping database/role cleanup (expected if scripts/13-15 were never run)"
+  log "PostgreSQL not installed/running -- skipping database/role cleanup (expected if scripts/hardening/13-15 were never run)"
 fi
 
 # --- 4. nginx site + TLS certs (leave the package and its other sites alone) ---
@@ -130,7 +131,7 @@ if [ -d /etc/nginx/ssl ]; then
   rm -rf /etc/nginx/ssl
   log "removed self-signed TLS certs (/etc/nginx/ssl)"
 fi
-log "note: the stock nginx 'default' site stays disabled (scripts/08 disabled it to stop it fighting Apache2 on :80 -- re-enabling it here would reintroduce that)"
+log "note: the stock nginx 'default' site stays disabled (scripts/install/08 disabled it to stop it fighting Apache2 on :80 -- re-enabling it here would reintroduce that)"
 if command -v nginx >/dev/null 2>&1 && systemctl is-active --quiet nginx 2>/dev/null; then
   nginx -t && systemctl reload nginx
   log "nginx reloaded"
@@ -171,9 +172,9 @@ if command -v ldapsearch >/dev/null 2>&1 && systemctl is-active --quiet slapd 2>
       log "LDAP subtree ${dn} already gone"
     fi
   done
-  log "note: cn=admin's rootDN/rootPW and the read-only ACLs from scripts/12 are still set on slapd's cn=config -- harmless on an empty directory, but not reverted to slapd's original defaults. scripts/22-teardown-packages.sh's slapd purge resets that too."
+  log "note: cn=admin's rootDN/rootPW and the read-only ACLs from scripts/hardening/12 are still set on slapd's cn=config -- harmless on an empty directory, but not reverted to slapd's original defaults. scripts/teardown/22-teardown-packages.sh's slapd purge resets that too."
 else
   log "slapd not installed/running -- skipping LDAP cleanup (expected if it was already purged)"
 fi
 
-log "=== phase 1 done. Gerrit/Gitea/LDAP data is gone; nginx/slapd/postgresql/openjdk packages are still installed. Run scripts/22-teardown-packages.sh next if you want those purged too. ==="
+log "=== phase 1 done. Gerrit/Gitea/LDAP data is gone; nginx/slapd/postgresql/openjdk packages are still installed. Run scripts/teardown/22-teardown-packages.sh next if you want those purged too. ==="

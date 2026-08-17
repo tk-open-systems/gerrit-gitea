@@ -20,7 +20,7 @@
 # every LDAP entry is added through ldap_add_if_missing, which skips
 # entries that already exist instead of failing on "already exists".
 set -euo pipefail
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../lib.sh"
 require_root
 
 ADMIN_DN="cn=admin,${BASE_DN}"

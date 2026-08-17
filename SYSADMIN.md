@@ -475,10 +475,13 @@ and why, not how to sequence them.
 - [x] **Dedicated, least-privilege LDAP bind account** — done, via
   `scripts/post-install/ldap-least-privilege.sh`. Replaced the directory admin DN
   Gerrit/Gitea had been reusing (a deliberate shortcut during initial
-  setup, see `scripts/install/02-openldap.sh`) with `cn=ldap-reader`, and — since
-  the directory had no explicit ACLs at all before this, running on
-  OpenLDAP's wide-open compiled-in default — locked down anonymous access
-  too. See SYSADMIN gotcha 12 for the real discovery this took: a naive
+  setup, see `scripts/install/02-openldap.sh`) with `cn=ldap-reader`
+  (see ADMIN.md's "What `ldap-reader` is, and why it exists" for what
+  this account actually does day to day, not just this status bullet)
+  and, since the directory had no explicit ACLs at all before this,
+  running on OpenLDAP's wide-open compiled-in default — locked down
+  anonymous access too. See SYSADMIN gotcha 12 for the real discovery
+  this took: a naive
   reader-only ACL breaks Gitea's group sync, because Gitea's LDAP client
   reuses one connection across the login flow and ends up running the
   group-membership search as the logging-in user, not the reader.

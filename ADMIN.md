@@ -133,6 +133,47 @@ the two:**
   that account's next Gitea login (WORKFLOW.md section 1), unlike
   Gerrit's live lookup.
 
+### What `ldap-reader` is, and why it exists
+
+Not one of the three credentials above — it's never passed as an
+argument to a `ggadmin-*` command — but it's referenced often enough
+elsewhere (`ldap-least-privilege.sh`, `set-service-credentials.sh`,
+the Status checklists in SYSADMIN.md) without ever being explained on
+its own, so here it is.
+
+Gerrit and Gitea don't just *authenticate* against LDAP — checking a
+password on login — they also *search* it, on every login and
+permission check: resolving a username to its full DN, then looking
+up which groups that DN belongs to (that's the mechanism behind
+`admins`/`developers` group membership turning into Gerrit
+capabilities and Gitea team membership). That search needs its own
+LDAP bind, separate from the person logging in. `scripts/install/04-gerrit.sh`
+and `scripts/install/06-gitea-ldap.sh` both set that bind to `cn=admin`
+at bootstrap — a deliberate shortcut for getting the lab running
+quickly, but a real problem left as-is: `cn=admin` is the directory's
+full read *and write* superuser, so Gerrit's and Gitea's own stored
+LDAP passwords (`secure.config`, Gitea's LDAP auth source) each become
+a path to compromising the entire directory, not just to running
+read-only searches.
+
+`cn=ldap-reader,ou=services,...` is the fix. `scripts/post-install/ldap-least-privilege.sh`
+creates it as a dedicated `organizationalRole` account — not a person,
+doesn't live under `ou=people`, can't log into Gerrit or Gitea as a
+user — with *only* read access to `ou=people`/`ou=groups` and nothing
+else (no write access anywhere, no access to any other part of the
+tree), then repoints both Gerrit's and Gitea's LDAP search bind at it,
+atomically, in place of `cn=admin`. From then on, a compromised
+Gerrit/Gitea LDAP credential can browse names, emails, and group
+membership — nothing it couldn't already show a logged-in user anyway
+— but can't write to the directory or read `userPassword` (that
+attribute is protected against `ldap-reader`'s own bind, not just
+anonymous, at the ACL level).
+
+Rotate its password with `scripts/post-install/set-service-credentials.sh ldap-reader`
+(or `all`), same as any other special account — but it only *exists*
+once `ldap-least-privilege.sh` has run; before that, there's nothing
+to rotate, and Gerrit/Gitea are still bound as `cn=admin`.
+
 ### Setting up the Gerrit service account
 
 `GERRIT_ADMIN_USER` used to default to `carol` — a real person's LDAP

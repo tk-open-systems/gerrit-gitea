@@ -6,7 +6,7 @@
 # line, which sudo applies even under env_reset):
 #
 #   sudo LDAP_ADMIN_PW='...' ALICE_PW='...' CAROL_PW='...' \
-#     bash 12-ldap-least-privilege.sh
+#     bash ldap-least-privilege.sh
 #
 # This directory currently has NO explicit ACLs at all -- it runs on
 # OpenLDAP's compiled-in default, which protects userPassword but
@@ -42,7 +42,7 @@
 # reader account) is reverified end to end.
 #
 # NOT safe to blindly rerun with the SAME generated password (it mints
-# a new one each time, like scripts/hardening/11) -- but every step is
+# a new one each time, like scripts/hardening/set-service-credentials.sh) -- but every step is
 # idempotent/guarded (LDAP entries via ldap_add_if_missing, ACL via a
 # plain replace, config edits via git config -f), so rerunning just
 # rotates the reader account's password and re-verifies everything.
@@ -59,7 +59,7 @@ GERRIT_URL="http://127.0.0.1:8080"
 GITEA_URL="http://127.0.0.1:3000"
 
 # Current passwords, likely already rotated off the lab default by
-# scripts/hardening/11 -- nothing persists them anywhere, so they must be passed
+# scripts/hardening/set-service-credentials.sh -- nothing persists them anywhere, so they must be passed
 # in rather than hard-coded.
 : "${LDAP_ADMIN_PW:?Set LDAP_ADMIN_PW to the current cn=admin password}"
 : "${ALICE_PW:?Set ALICE_PW to alices current password}"
@@ -94,7 +94,7 @@ objectClass: organizationalRole
 objectClass: simpleSecurityObject
 cn: ldap-reader
 userPassword: ${READER_HASH}
-description: Bind-only account for Gerrit/Gitea directory searches -- read access only, see scripts/hardening/12-ldap-least-privilege.sh
+description: Bind-only account for Gerrit/Gitea directory searches -- read access only, see scripts/hardening/ldap-least-privilege.sh
 EOF
   log "created reader account ${READER_DN}"
 fi

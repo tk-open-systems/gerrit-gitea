@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Production hardening: self-signed TLS on the nginx reverse proxy.
-# Run as root: sudo bash 16-nginx-tls.sh
+# Run as root: sudo bash nginx-tls.sh
 #
 # Adds HTTPS on :8453 (Gerrit) and :8454 (Gitea), alongside -- not
 # replacing -- the existing plain-HTTP :8090/:8091 from scripts/install/08.

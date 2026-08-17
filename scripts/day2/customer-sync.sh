@@ -7,8 +7,8 @@
 #                          git remote add customer-<name> <gitlab-url>)
 #
 # Usage:
-#   17-customer-sync.sh start-cycle <name>
-#   17-customer-sync.sh deliver     <name> [cycle-branch]
+#   customer-sync.sh start-cycle <name>
+#   customer-sync.sh deliver     <name> [cycle-branch]
 #
 # start-cycle imports the customer's current tree as a new Gerrit
 # branch (customer/<name>/<date>-import) with no shared history to any

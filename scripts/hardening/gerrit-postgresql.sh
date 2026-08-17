@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Production hardening: migrate Gerrit off H2 onto PostgreSQL.
-# Run as root, passing the gerrit role's password from scripts/hardening/13:
+# Run as root, passing the gerrit role's password from scripts/hardening/postgresql.sh:
 #
 #   sudo GERRIT_DB_PW='...' CAROL_PW='...' \
-#     bash 14-gerrit-postgresql.sh
+#     bash gerrit-postgresql.sh
 #
 # What Gerrit's H2 database actually holds (confirmed by inspecting
 # /var/lib/gerrit/db/ before touching anything): just
@@ -35,7 +35,7 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../lib.sh"
 require_root
 
-: "${GERRIT_DB_PW:?Set GERRIT_DB_PW to the gerrit Postgres roles password from scripts/hardening/13}"
+: "${GERRIT_DB_PW:?Set GERRIT_DB_PW to the gerrit Postgres roles password from scripts/hardening/postgresql.sh}"
 : "${CAROL_PW:?Set CAROL_PW to carols current password}"
 
 SITE=/var/lib/gerrit

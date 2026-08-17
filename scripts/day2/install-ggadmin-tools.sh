@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Installs the "Day-2" admin tools (scripts/day2/18-user-lifecycle.sh,
-# scripts/day2/19-project-lifecycle.sh) onto this host's PATH under
-# short, non-numeric names, as symlinks into /usr/local/sbin:
-#   /usr/local/sbin/ggadmin-user    -> scripts/day2/18-user-lifecycle.sh
-#   /usr/local/sbin/ggadmin-project -> scripts/day2/19-project-lifecycle.sh
+# Installs the "Day-2" admin tools (scripts/day2/user-lifecycle.sh,
+# scripts/day2/project-lifecycle.sh) onto this host's PATH under
+# short names, as symlinks into /usr/local/sbin:
+#   /usr/local/sbin/ggadmin-user    -> scripts/day2/user-lifecycle.sh
+#   /usr/local/sbin/ggadmin-project -> scripts/day2/project-lifecycle.sh
 #
 # /usr/local/sbin is the FHS/Debian-policy location for locally
 # installed root-only admin binaries that aren't managed by dpkg (FHS:
@@ -22,7 +22,7 @@
 # sbin directory onto a non-root PATH would work against the very
 # root-only convention /usr/local/sbin exists to signal.
 #
-# Run as root: sudo bash 20-install-ggadmin-tools.sh
+# Run as root: sudo bash install-ggadmin-tools.sh
 #
 # Safe to rerun: an existing correct symlink is left alone; a
 # pre-existing file/symlink at the target path pointing somewhere else
@@ -37,7 +37,7 @@ BIN_DIR=/usr/local/sbin
 # name -> source script, kept as two parallel arrays for bash 4/5
 # portability (no need for associative-array ordering guarantees).
 NAMES=(ggadmin-user ggadmin-project)
-SRCS=(18-user-lifecycle.sh 19-project-lifecycle.sh)
+SRCS=(user-lifecycle.sh project-lifecycle.sh)
 
 [ -d "$BIN_DIR" ] || die "$BIN_DIR does not exist -- unexpected on a standard Debian host, check the base install"
 

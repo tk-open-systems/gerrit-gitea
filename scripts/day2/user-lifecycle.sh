@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Day-2 operation: user lifecycle (add/modify/offboard), scripting
 # ADMIN.md section 1. Run as root on the Gerrit/Gitea host: sudo bash
-# 18-user-lifecycle.sh <command> ...
+# user-lifecycle.sh <command> ...
 #
 # Gerrit and Gitea are pure LDAP-auth consumers (WORKFLOW.md section 1)
 # -- accounts are never created directly in either, only in LDAP. This
@@ -12,7 +12,7 @@
 # Gitea only resyncs at login time.
 #
 # Needs LDAP_ADMIN_PW always (cn=admin's current password -- set by
-# scripts/hardening/11-set-service-credentials.sh ldap-admin, so there's no safe
+# scripts/hardening/set-service-credentials.sh ldap-admin, so there's no safe
 # default to fall back to here). offboard/reactivate also need
 # GERRIT_ADMIN_PW and GITEA_ADMIN_PW (current passwords for the
 # gerrit-bot/gitea-admin admin accounts -- see ADMIN.md's "Setting up
@@ -22,16 +22,16 @@
 # env_reset):
 #
 #   sudo LDAP_ADMIN_PW='...' GERRIT_ADMIN_PW='...' GITEA_ADMIN_PW='...' \
-#     bash 18-user-lifecycle.sh offboard dave
+#     bash user-lifecycle.sh offboard dave
 #
 # Usage:
-#   18-user-lifecycle.sh add <uid> <full name> <email> [group ...]
-#   18-user-lifecycle.sh set-password <uid>
-#   18-user-lifecycle.sh groups <uid>
-#   18-user-lifecycle.sh add-group <uid> <group>
-#   18-user-lifecycle.sh remove-group <uid> <group>
-#   18-user-lifecycle.sh offboard <uid> [--delete-entry]
-#   18-user-lifecycle.sh reactivate <uid>
+#   user-lifecycle.sh add <uid> <full name> <email> [group ...]
+#   user-lifecycle.sh set-password <uid>
+#   user-lifecycle.sh groups <uid>
+#   user-lifecycle.sh add-group <uid> <group>
+#   user-lifecycle.sh remove-group <uid> <group>
+#   user-lifecycle.sh offboard <uid> [--delete-entry]
+#   user-lifecycle.sh reactivate <uid>
 #
 # add/set-password print a freshly generated password once at the end
 # (or use the one given via NEW_USER_PW) -- nothing is stored by this
@@ -46,7 +46,7 @@
 # per ADMIN.md, nothing in Gerrit/Gitea's own history (commits,
 # reviews, issue comments) is ever touched.
 set -euo pipefail
-# readlink -f (not just dirname "$BASH_SOURCE") because scripts/day2/20
+# readlink -f (not just dirname "$BASH_SOURCE") because scripts/day2/install-ggadmin-tools.sh
 # installs this under /usr/local/sbin as a symlink -- BASH_SOURCE gives the
 # symlink's own path, not its target, so resolving it here is what lets
 # lib.sh/config.sh still be found one directory up from the real file,
@@ -90,7 +90,7 @@ ORIG_ARGS_Q=$(printf '%q ' "$@")
 
 if [ -z "${LDAP_ADMIN_PW:-}" ]; then
   die "LDAP_ADMIN_PW is not set (cn=admin current password).
-  Get it from: scripts/hardening/11-set-service-credentials.sh ldap-admin printed it the last time that ran; if it was never run, it is still the install default, ChangeMe123!
+  Get it from: scripts/hardening/set-service-credentials.sh ldap-admin printed it the last time that ran; if it was never run, it is still the install default, ChangeMe123!
   Then rerun this exact command with it set:
     LDAP_ADMIN_PW=\"...\" ${SCRIPT_NAME} ${ORIG_ARGS_Q}
   (invoking via sudo instead of already being root? put VAR=value right after the word sudo, since sudo otherwise drops plain env vars: sudo LDAP_ADMIN_PW=\"...\" ${SCRIPT_NAME} ${ORIG_ARGS_Q})"
@@ -287,7 +287,7 @@ EOF
   [ "$delete_entry" -eq 1 ] && orig_cmd="${orig_cmd} --delete-entry"
   if [ -z "${GERRIT_ADMIN_PW:-}" ] || [ -z "${GITEA_ADMIN_PW:-}" ]; then
     die "GERRIT_ADMIN_PW and GITEA_ADMIN_PW are not set -- needed to also deactivate the Gerrit/Gitea accounts (current passwords for ${GERRIT_ADMIN_USER} and ${GITEA_ADMIN_USER}).
-  Get them from: GERRIT_ADMIN_PW was printed once by whichever of "ggadmin-user add gerrit-bot ..." or "ggadmin-user set-password gerrit-bot" set it last (no bootstrap default -- it never was ChangeMe123!); GITEA_ADMIN_PW was printed by "scripts/hardening/11-set-service-credentials.sh gitea-admin" the last time that ran, or is still the install default ChangeMe123! if it never has.
+  Get them from: GERRIT_ADMIN_PW was printed once by whichever of "ggadmin-user add gerrit-bot ..." or "ggadmin-user set-password gerrit-bot" set it last (no bootstrap default -- it never was ChangeMe123!); GITEA_ADMIN_PW was printed by "scripts/hardening/set-service-credentials.sh gitea-admin" the last time that ran, or is still the install default ChangeMe123! if it never has.
   Then rerun this exact command with them set:
     GERRIT_ADMIN_PW=\"...\" GITEA_ADMIN_PW=\"...\" ${SCRIPT_NAME} ${orig_cmd}
   (invoking via sudo instead of already being root? put the same VAR=value pairs right after the word sudo, since sudo otherwise drops plain env vars: sudo GERRIT_ADMIN_PW=\"...\" GITEA_ADMIN_PW=\"...\" ${SCRIPT_NAME} ${orig_cmd})"
@@ -330,7 +330,7 @@ cmd_reactivate() {
   local orig_cmd="reactivate $(printf '%q' "$uid")"
   if [ -z "${GERRIT_ADMIN_PW:-}" ] || [ -z "${GITEA_ADMIN_PW:-}" ]; then
     die "GERRIT_ADMIN_PW and GITEA_ADMIN_PW are not set (current passwords for ${GERRIT_ADMIN_USER} and ${GITEA_ADMIN_USER}).
-  Get them from: GERRIT_ADMIN_PW was printed once by whichever of "ggadmin-user add gerrit-bot ..." or "ggadmin-user set-password gerrit-bot" set it last (no bootstrap default -- it never was ChangeMe123!); GITEA_ADMIN_PW was printed by "scripts/hardening/11-set-service-credentials.sh gitea-admin" the last time that ran, or is still the install default ChangeMe123! if it never has.
+  Get them from: GERRIT_ADMIN_PW was printed once by whichever of "ggadmin-user add gerrit-bot ..." or "ggadmin-user set-password gerrit-bot" set it last (no bootstrap default -- it never was ChangeMe123!); GITEA_ADMIN_PW was printed by "scripts/hardening/set-service-credentials.sh gitea-admin" the last time that ran, or is still the install default ChangeMe123! if it never has.
   Then rerun this exact command with them set:
     GERRIT_ADMIN_PW=\"...\" GITEA_ADMIN_PW=\"...\" ${SCRIPT_NAME} ${orig_cmd}
   (invoking via sudo instead of already being root? put the same VAR=value pairs right after the word sudo, since sudo otherwise drops plain env vars: sudo GERRIT_ADMIN_PW=\"...\" GITEA_ADMIN_PW=\"...\" ${SCRIPT_NAME} ${orig_cmd})"

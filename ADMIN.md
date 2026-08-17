@@ -14,8 +14,8 @@ they don't need root on the Gerrit/Gitea host at all; only the one plugin
 install below does.
 
 **Everything below is now also wrapped as scripts** —
-`scripts/day2/18-user-lifecycle.sh` (section 1) and
-`scripts/day2/19-project-lifecycle.sh` (section 2), run as root on the
+`scripts/day2/user-lifecycle.sh` (section 1) and
+`scripts/day2/project-lifecycle.sh` (section 2), run as root on the
 Gerrit/Gitea host the same way as every other numbered script here.
 They encode every
 gotcha this file documents (the Gerrit/Gitea sync asymmetry, the two
@@ -26,12 +26,12 @@ in full since they're what the scripts actually run, and the prose
 around them (why each step exists, what surprised us) is the part a
 script can't carry — but for real operations, prefer the script.
 
-Run `sudo bash scripts/day2/20-install-ggadmin-tools.sh` once to symlink
+Run `sudo bash scripts/day2/install-ggadmin-tools.sh` once to symlink
 them onto PATH under short names — `ggadmin-user` and
 `ggadmin-project` — so `sudo ggadmin-user offboard dave` works from
 anywhere without a `scripts/` path. That's what the rest of this file
 calls them as; before installing, substitute the full
-`scripts/day2/18-user-lifecycle.sh` / `scripts/day2/19-project-lifecycle.sh`
+`scripts/day2/user-lifecycle.sh` / `scripts/day2/project-lifecycle.sh`
 path instead.
 
 ### Required credentials, per command
@@ -41,7 +41,7 @@ has to be passed in on every invocation, as an env var on the `sudo`
 command line (sudo strips plain env vars otherwise; see each script's
 header for the exact syntax, or just run the command without them once
 — the error message gives you the exact fix). `LDAP_ADMIN_PW` and
-`GITEA_ADMIN_PW` are whatever `scripts/hardening/11-set-service-credentials.sh
+`GITEA_ADMIN_PW` are whatever `scripts/hardening/set-service-credentials.sh
 ldap-admin` / `... gitea-admin` last set them to, or still the install
 default `ChangeMe123!` if that was never run; `GERRIT_ADMIN_PW` is
 whatever `ggadmin-user add gerrit-bot ...` or
@@ -76,7 +76,7 @@ where to reset one.
   every ACL by being the directory root, so it has no connection to
   group membership at all. Set at bootstrap by `scripts/install/02-openldap.sh`
   (lab default `ChangeMe123!`); changed by
-  `scripts/hardening/11-set-service-credentials.sh ldap-admin` via
+  `scripts/hardening/set-service-credentials.sh ldap-admin` via
   `ldapmodify -Y EXTERNAL` against the `cn=config` backend over
   `ldapi:///` (SASL EXTERNAL auth as root, not a regular LDAP bind).
 
@@ -96,7 +96,7 @@ where to reset one.
   (`scripts/install/03-gitea.sh`, `scripts/install/06-gitea-ldap.sh`) — a completely
   separate identity from LDAP, stored in Gitea's own database. Set at
   bootstrap by `scripts/install/03-gitea.sh`; changed by
-  `scripts/hardening/11-set-service-credentials.sh gitea-admin` via Gitea's own
+  `scripts/hardening/set-service-credentials.sh gitea-admin` via Gitea's own
   `gitea admin user change-password` CLI, which never touches LDAP.
 
 **Connection to group membership/roles — and it's asymmetric between
@@ -361,7 +361,7 @@ never rewrite history.
 
 ### Removing the lab test users (alice/bob/carol)
 
-Script: `scripts/hardening/17-remove-test-users.sh` — does everything
+Script: `scripts/hardening/remove-test-users.sh` — does everything
 below in order (offboards all three with `--delete-entry`, then
 deletes `cn=developers` only if it's actually empty afterward). Needs
 `LDAP_ADMIN_PW`, `GERRIT_ADMIN_PW`, and `GITEA_ADMIN_PW`, same as
@@ -369,7 +369,7 @@ deletes `cn=developers` only if it's actually empty afterward). Needs
 
 ```
 sudo LDAP_ADMIN_PW='...' GERRIT_ADMIN_PW='...' GITEA_ADMIN_PW='...' \
-  bash scripts/hardening/17-remove-test-users.sh
+  bash scripts/hardening/remove-test-users.sh
 ```
 
 The rest of this section is what that script actually runs, and why —
@@ -379,7 +379,7 @@ command above is all you need.
 `alice`/`bob`/`carol` (`scripts/install/02-openldap.sh`) exist purely to
 exercise LDAP groups, Gerrit ACL bootstrap, and Gitea team sync while
 the install and hardening scripts (`scripts/install/02` through
-`scripts/hardening/15`) were being written and verified — they
+`scripts/hardening/gitea-postgresql.sh`) were being written and verified — they
 aren't real people and shouldn't still be sitting in the directory once
 this install moves into Day-2. Removing them is just the `offboard
 --delete-entry` procedure above, run against all three, but with one
@@ -440,13 +440,13 @@ group) works again as documented above.
 
 As with any offboard, nothing in Gerrit/Gitea's own history is
 touched — commits `scripts/install/05`/`07`/`09` and
-`scripts/hardening/14` authored as `carol` during bootstrap keep her
+`scripts/hardening/gerrit-postgresql.sh` authored as `carol` during bootstrap keep her
 name/email in their history forever, same as any other offboarded
 user's past work. And as SYSADMIN.md's Production Hardening section
 notes: once these three are gone, several other scripts stop working
 too, since they authenticate as `carol` —
 `scripts/install/04`-`07`/`09`/`10` hardcode her original
-`ChangeMe123!` password, while `scripts/hardening/12`/`14`/`15` take
+`ChangeMe123!` password, while `scripts/hardening/ldap-least-privilege.sh`/`14`/`15` take
 `CAROL_PW` as a parameter instead but still need her account to exist
 at all. Expected either way — their job is already done, none of them
 are meant to be

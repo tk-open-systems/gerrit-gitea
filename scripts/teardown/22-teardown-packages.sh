@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Tear down the gg (Gerrit/Gitea) installation, phase 2 of 2: purge the
-# packages scripts/install/01-prereqs.sh and scripts/hardening/13-postgresql.sh installed
+# packages scripts/install/01-prereqs.sh and scripts/hardening/postgresql.sh installed
 # solely for this project -- nginx, slapd + ldap-utils, every
 # postgresql* package, and openjdk-21-jre-headless -- plus their
 # leftover config/data directories.
@@ -18,7 +18,7 @@
 # DESTRUCTIVE AND IRREVERSIBLE, and wider-reaching than scripts/teardown/21:
 # this changes host-wide package state, not just this project's data.
 # If anything else on this host started depending on nginx/postgresql/
-# slapd/java after scripts/install/01 / scripts/hardening/13 installed them here, this breaks it.
+# slapd/java after scripts/install/01 / scripts/hardening/postgresql.sh installed them here, this breaks it.
 # Requires typing the host's FQDN to confirm, unless --yes is passed.
 #
 # Safe to rerun: purging an already-purged package is a dpkg/apt
@@ -60,7 +60,7 @@ About to apt-get purge:
 
 This does NOT touch Apache2 on :80. It DOES change host-wide package
 state -- anything else on this host that started depending on these
-packages after scripts/install/01 / scripts/hardening/13 installed them will break.
+packages after scripts/install/01 / scripts/hardening/postgresql.sh installed them will break.
 
 Type the host's FQDN (${HOST_FQDN}) to confirm, or rerun with --yes:
 EOF
@@ -90,7 +90,7 @@ purge_matching '^openjdk-21-jre-headless$'
 
 # Belt-and-suspenders: apt purge normally removes these, but a
 # manually-created directory (slapd's own database dir, config edited
-# by scripts/hardening/12 / scripts/hardening/13) can survive if a purge prompt was ever answered
+# by scripts/hardening/ldap-least-privilege.sh / scripts/hardening/postgresql.sh) can survive if a purge prompt was ever answered
 # "keep" in the past, and scripts/teardown/21 already deleted the actual LDAP
 # entries and DB roles/databases anyway -- there is no live data left
 # to lose here.

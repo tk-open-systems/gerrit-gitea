@@ -7,7 +7,7 @@
 #
 # Run as root:
 #   sudo LDAP_ADMIN_PW='...' GERRIT_ADMIN_PW='...' GITEA_ADMIN_PW='...' \
-#     bash 17-remove-test-users.sh
+#     bash remove-test-users.sh
 #
 # Prerequisite: gerrit-bot must already exist and hold Gerrit admin
 # rights (see ADMIN.md's "Setting up the Gerrit service account" --
@@ -16,10 +16,10 @@
 # group is refused (groupOfNames requires >=1 member) -- gerrit-bot
 # staying in `admins` is what makes removing carol safe. If gerrit-bot
 # isn't set up yet, this script fails on the carol step with that exact
-# explanation (from scripts/day2/18-user-lifecycle.sh's own offboard
+# explanation (from scripts/day2/user-lifecycle.sh's own offboard
 # guard), not a confusing LDAP error.
 #
-# Reuses scripts/day2/18-user-lifecycle.sh's `offboard --delete-entry`
+# Reuses scripts/day2/user-lifecycle.sh's `offboard --delete-entry`
 # for each of the three users -- same LDAP-removal + Gerrit/Gitea-
 # deactivation logic ADMIN.md documents, no reason to duplicate it here
 # -- then handles the one thing offboard itself can't: alice/bob are
@@ -31,14 +31,15 @@
 #
 # DESTRUCTIVE, but narrowly scoped and expected: this only ever touches
 # alice/bob/carol and the developers group, never a real account. Not
-# reversible -- matches scripts/hardening/11's credential rotation: a
+# reversible -- matches scripts/hardening/set-service-credentials.sh's credential rotation: a
 # one-way step towards Day-2, not something that needs an interactive
 # confirmation prompt every time (unlike scripts/teardown/21-22, which
 # affect everything, this affects three specific, always-lab-only
 # accounts). After this runs, several install/hardening scripts that
 # authenticate as carol/alice/bob (scripts/install/04-07/09/10,
-# scripts/hardening/12/14/15) can no longer be blindly rerun on this
-# host -- expected, their job is already done.
+# scripts/hardening/ldap-least-privilege.sh, scripts/hardening/gerrit-postgresql.sh,
+# scripts/hardening/gitea-postgresql.sh) can no longer be blindly rerun
+# on this host -- expected, their job is already done.
 #
 # Safe to rerun: offboard is already idempotent (an already-gone user
 # is a no-op, logged not errored), and the developers group is only
@@ -48,7 +49,7 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../lib.sh"
 require_root
 
 SCRIPTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-OFFBOARD="${SCRIPTS_DIR}/../day2/18-user-lifecycle.sh"
+OFFBOARD="${SCRIPTS_DIR}/../day2/user-lifecycle.sh"
 [ -x "$OFFBOARD" ] || die "expected $OFFBOARD to exist and be executable"
 
 for var in LDAP_ADMIN_PW GERRIT_ADMIN_PW GITEA_ADMIN_PW; do

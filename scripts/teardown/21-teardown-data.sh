@@ -2,15 +2,16 @@
 # Tear down the gg (Gerrit/Gitea) installation, phase 1 of 2: stop and
 # remove every gg-specific systemd service, binary, data/config
 # directory, LDAP entry, and PostgreSQL role/database created by
-# scripts/install, scripts/hardening, and scripts/day2/17-19, plus the
-# symlinks scripts/day2/20 installed. Leaves the underlying packages
-# (openjdk, nginx, slapd, postgresql) installed -- see
-# scripts/teardown/22-teardown-packages.sh to purge those too, once this
-# has run.
+# scripts/install, scripts/hardening, and scripts/day2's
+# customer-sync.sh/user-lifecycle.sh/project-lifecycle.sh, plus the
+# symlinks scripts/day2/install-ggadmin-tools.sh installed. Leaves the
+# underlying packages (openjdk, nginx, slapd, postgresql) installed --
+# see scripts/teardown/22-teardown-packages.sh to purge those too, once
+# this has run.
 #
 # Run as root: sudo LDAP_ADMIN_PW='...' bash 21-teardown-data.sh [--yes]
 #
-# LDAP_ADMIN_PW is cn=admin's current password (scripts/hardening/11's last run,
+# LDAP_ADMIN_PW is cn=admin's current password (scripts/hardening/set-service-credentials.sh's last run,
 # or the install default ChangeMe123! if that was never run) -- needed
 # to delete the LDAP tree over the wire rather than touching slapd's
 # database files directly while it's running.
@@ -68,7 +69,7 @@ fi
 # no reason to leave a run half-finished for a checkable precondition).
 if command -v ldapsearch >/dev/null 2>&1 && systemctl is-active --quiet slapd 2>/dev/null \
    && [ -z "${LDAP_ADMIN_PW:-}" ]; then
-  die "LDAP_ADMIN_PW is not set (cn=admin's current password -- scripts/hardening/11-set-service-credentials.sh ldap-admin's last run, or the install default ChangeMe123! if that was never run).
+  die "LDAP_ADMIN_PW is not set (cn=admin's current password -- scripts/hardening/set-service-credentials.sh ldap-admin's last run, or the install default ChangeMe123! if that was never run).
   Rerun with it set: sudo LDAP_ADMIN_PW='...' bash ${SCRIPT_NAME} --yes"
 fi
 
@@ -89,9 +90,9 @@ systemctl reset-failed gerrit gitea 2>/dev/null || true
 
 # --- 2. ggadmin-tools symlinks (only if they're actually ours) ---
 SCRIPTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-for pair in "ggadmin-user:18-user-lifecycle.sh" "ggadmin-project:19-project-lifecycle.sh"; do
+for pair in "ggadmin-user:user-lifecycle.sh" "ggadmin-project:project-lifecycle.sh"; do
   name=${pair%%:*}
-  src="${SCRIPTS_DIR}/${pair##*:}"
+  src="${SCRIPTS_DIR}/../day2/${pair##*:}"
   target="/usr/local/sbin/${name}"
   if [ -L "$target" ] && [ "$(readlink -f "$target")" = "$(readlink -f "$src")" ]; then
     rm -f "$target"
@@ -103,7 +104,7 @@ for pair in "ggadmin-user:18-user-lifecycle.sh" "ggadmin-project:19-project-life
   fi
 done
 
-# --- 3. PostgreSQL roles/databases, if scripts/hardening/13-15 were ever run ---
+# --- 3. PostgreSQL roles/databases, if scripts/hardening/postgresql.sh-15 were ever run ---
 if command -v psql >/dev/null 2>&1 && systemctl is-active --quiet postgresql 2>/dev/null; then
   for pair in "gerritdb:gerrit" "giteadb:gitea"; do
     db=${pair%%:*}
@@ -122,7 +123,7 @@ if command -v psql >/dev/null 2>&1 && systemctl is-active --quiet postgresql 2>/
     fi
   done
 else
-  log "PostgreSQL not installed/running -- skipping database/role cleanup (expected if scripts/hardening/13-15 were never run)"
+  log "PostgreSQL not installed/running -- skipping database/role cleanup (expected if scripts/hardening/postgresql.sh-15 were never run)"
 fi
 
 # --- 4. nginx site + TLS certs (leave the package and its other sites alone) ---
@@ -172,7 +173,7 @@ if command -v ldapsearch >/dev/null 2>&1 && systemctl is-active --quiet slapd 2>
       log "LDAP subtree ${dn} already gone"
     fi
   done
-  log "note: cn=admin's rootDN/rootPW and the read-only ACLs from scripts/hardening/12 are still set on slapd's cn=config -- harmless on an empty directory, but not reverted to slapd's original defaults. scripts/teardown/22-teardown-packages.sh's slapd purge resets that too."
+  log "note: cn=admin's rootDN/rootPW and the read-only ACLs from scripts/hardening/ldap-least-privilege.sh are still set on slapd's cn=config -- harmless on an empty directory, but not reverted to slapd's original defaults. scripts/teardown/22-teardown-packages.sh's slapd purge resets that too."
 else
   log "slapd not installed/running -- skipping LDAP cleanup (expected if it was already purged)"
 fi

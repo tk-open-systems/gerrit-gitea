@@ -4,21 +4,21 @@
 #   ldap-admin          cn=admin -- the LDAP directory's own root bind
 #   ldap-reader         cn=ldap-reader,ou=services,... -- read-only
 #                       search bind for Gerrit/Gitea (only exists if
-#                       scripts/hardening/12-ldap-least-privilege.sh has run)
+#                       scripts/hardening/ldap-least-privilege.sh has run)
 #   gitea-admin         local Gitea instance-admin account
 #   gerrit-replication  local Gitea account the replication plugin
 #                       pushes as
 #
 # Everything else -- gerrit-bot, carol, alice, bob, or any other real
 # LDAP person under ou=people -- is a normal user account and goes
-# through scripts/day2/18-user-lifecycle.sh (`ggadmin-user set-password
+# through scripts/day2/user-lifecycle.sh (`ggadmin-user set-password
 # <uid>`) instead. This script only covers what falls outside that:
 # the directory root itself, the ou=services bind account, and Gitea's
 # own local (non-LDAP) accounts.
 #
-# Run as root: sudo bash 11-set-service-credentials.sh <account> [<account> ...]
-#   sudo bash 11-set-service-credentials.sh gitea-admin
-#   sudo bash 11-set-service-credentials.sh ldap-admin gerrit-replication
+# Run as root: sudo bash set-service-credentials.sh <account> [<account> ...]
+#   sudo bash set-service-credentials.sh gitea-admin
+#   sudo bash set-service-credentials.sh ldap-admin gerrit-replication
 #
 # A new password is generated per account (openssl rand) unless you
 # override it via NEW_LDAP_ADMIN_PW / NEW_LDAP_READER_PW /
@@ -28,7 +28,7 @@
 # Only ldap-reader needs an existing credential (LDAP_ADMIN_PW,
 # cn=admin's CURRENT password, to authenticate the change). The other
 # three need none: ldap-admin changes via SASL EXTERNAL as root against
-# the cn=config backend (the same mechanism scripts/hardening/12 uses), and
+# the cn=config backend (the same mechanism scripts/hardening/ldap-least-privilege.sh uses), and
 # gitea-admin/gerrit-replication change via the `gitea` CLI run as the
 # `gitea` OS user -- both need only root on this host.
 #
@@ -37,7 +37,7 @@
 # affected service restarted too, so a password change never leaves a
 # service unable to search the directory. Which DN they're currently
 # bound as isn't guessed: scripts/install/06-gitea-ldap.sh always points both
-# at cn=admin, and scripts/hardening/12-ldap-least-privilege.sh always repoints
+# at cn=admin, and scripts/hardening/ldap-least-privilege.sh always repoints
 # BOTH at ldap-reader together, atomically -- so "does cn=ldap-reader
 # exist" is a reliable signal for which one currently applies. Changing
 # gerrit-replication's password similarly updates the copy embedded in
@@ -101,7 +101,7 @@ update_gerrit_ldap_bind() {
 # set on every update, not just bind-dn/bind-password: `update-ldap`
 # silently resets any omitted field (including group-sync settings) to
 # empty, confirmed the hard way once already (see
-# scripts/hardening/12-ldap-least-privilege.sh's comment on this exact gotcha).
+# scripts/hardening/ldap-least-privilege.sh's comment on this exact gotcha).
 update_gitea_ldap_bind() {
   local bind_dn=$1 new_pw=$2
   local id; id=$(gitea_ldap_source_id)
@@ -163,7 +163,7 @@ EOF
 }
 
 set_ldap_reader() {
-  reader_exists || die "cn=ldap-reader does not exist -- scripts/hardening/12-ldap-least-privilege.sh has not been run on this host, nothing to change"
+  reader_exists || die "cn=ldap-reader does not exist -- scripts/hardening/ldap-least-privilege.sh has not been run on this host, nothing to change"
   : "${LDAP_ADMIN_PW:?Set LDAP_ADMIN_PW to cn=admin current password, needed to authenticate this change}"
   local new_pw=${NEW_LDAP_READER_PW:-$(gen_pw)}
   local hash; hash=$(/usr/sbin/slappasswd -s "$new_pw")

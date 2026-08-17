@@ -361,16 +361,21 @@ never rewrite history.
 
 ### Removing the lab test users (alice/bob/carol)
 
-Script: `scripts/hardening/remove-test-users.sh` — does everything
-below in order (offboards all three with `--delete-entry`, then
-deletes `cn=developers` only if it's actually empty afterward). Needs
-`LDAP_ADMIN_PW`, `GERRIT_ADMIN_PW`, and `GITEA_ADMIN_PW`, same as
-`ggadmin-user offboard` itself:
+Script: `scripts/install/11-remove-test-users.sh` — the last install
+script, meant to run once you're done testing (see SYSADMIN.md's "Run
+the scripts as root"). Does everything below in order (offboards all
+three with `--delete-entry`, then deletes `cn=developers` only if it's
+actually empty afterward). Needs `LDAP_ADMIN_PW`, `GERRIT_ADMIN_PW`,
+and `GITEA_ADMIN_PW`, same as `ggadmin-user offboard` itself:
 
 ```
 sudo LDAP_ADMIN_PW='...' GERRIT_ADMIN_PW='...' GITEA_ADMIN_PW='...' \
-  bash scripts/hardening/remove-test-users.sh
+  bash scripts/install/11-remove-test-users.sh
 ```
+
+If you're also running `scripts/hardening/ldap-least-privilege.sh`, run
+it *before* this script, not after — see SYSADMIN.md's "Which ones to
+run, and in what order" for why.
 
 The rest of this section is what that script actually runs, and why —
 read on if you want the manual version or the reasoning, otherwise the

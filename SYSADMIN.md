@@ -26,11 +26,15 @@ submit → replicate → issue-auto-close cycle.
 - [x] `scripts/install/10-delete-project-plugin.sh` — enables Gerrit's
       `delete-project` plugin (bundled in the WAR, not installed by phase
       4), used by the project-deletion procedure in [ADMIN.md](ADMIN.md)
+- [x] `scripts/install/11-remove-test-users.sh` — removes the lab
+      test users `alice`/`bob`/`carol` (LDAP entries + Gerrit/Gitea
+      deactivation) once they're no longer needed, and the now-empty
+      `developers` LDAP group they leave behind
 - [x] `scripts/hardening/set-service-credentials.sh` — sets/changes the
       password for one or more of the non-human "special" accounts
-      (`ldap-admin`, `ldap-reader`, `gitea-admin`, `gerrit-replication`)
-      individually; see Production Hardening below for what's done vs.
-      not
+      (`ldap-admin`, `ldap-reader`, `gitea-admin`, `gerrit-replication`),
+      individually or all at once (`all`); see Production Hardening
+      below for what's done vs. not
 - [x] `scripts/hardening/ldap-least-privilege.sh` — locks down the directory's
       previously-nonexistent ACLs and adds a dedicated read-only bind
       account for Gerrit/Gitea
@@ -42,10 +46,6 @@ submit → replicate → issue-auto-close cycle.
       preserving all data
 - [x] `scripts/hardening/nginx-tls.sh` — self-signed HTTPS on `:8453`/`:8454`,
       additive alongside the existing plain-HTTP `:8090`/`:8091`
-- [x] `scripts/hardening/remove-test-users.sh` — removes the lab
-      test users `alice`/`bob`/`carol` (LDAP entries + Gerrit/Gitea
-      deactivation) once they're no longer needed, and the now-empty
-      `developers` LDAP group they leave behind
 - [ ] Production hardening beyond what's listed above (see below) — not
       done, this is a lab install
 - [ ] Gerrit → Gitea webhook for in-review issue visibility — deferred, see
@@ -157,18 +157,24 @@ Everything in the other `scripts/` subdirectories is optional, and
 each one serves a different purpose rather than continuing the same
 sequence:
 
-- **`scripts/install/10-delete-project-plugin.sh`** — the one script
-  left in `install/` after the required run above, since it's still a
-  one-time setup step, just an optional one: it enables the Gerrit
-  plugin `ggadmin-project delete` needs (ADMIN.md section 2). Skip it
-  until you actually need to delete a project.
+- **`scripts/install/10-delete-project-plugin.sh` and
+  `11-remove-test-users.sh`** — the two scripts left in `install/`
+  after the required run above, since both are still one-time setup
+  steps, just optional ones, meant to run last: `10` enables the
+  Gerrit plugin `ggadmin-project delete` needs (ADMIN.md section 2, skip
+  until you actually need to delete a project); `11` removes the lab
+  test users `alice`/`bob`/`carol` once they're no longer needed (see
+  ADMIN.md's "Removing the lab test users" and "Which ones to run, and
+  in what order" below — it needs `gerrit-bot` set up first, and should
+  run after `scripts/hardening/ldap-least-privilege.sh` if you're using
+  that too).
 - **`scripts/hardening/`** — production hardening (credential rotation,
-  LDAP least-privilege, PostgreSQL migration, self-signed TLS, removing
-  the lab test users). Unlike `install/`, these aren't one linear
-  sequence — most are independent of each other, and none are required
-  for a lab, which is why the files themselves aren't numbered. See
-  "Production hardening" below for what each one does and the couple
-  of real ordering dependencies that do exist.
+  LDAP least-privilege, PostgreSQL migration, self-signed TLS). Unlike
+  `install/`, these aren't one linear sequence — most are independent
+  of each other, and none are required for a lab, which is why the
+  files themselves aren't numbered. See "Production hardening" below
+  for what each one does and the couple of real ordering dependencies
+  that do exist.
 - **`scripts/day2/`** — ongoing/Day-2 tooling, not setup, and not a
   sequence either (hence no numbers): `customer-sync.sh` runs as
   needed, not once; `user-lifecycle.sh`/`project-lifecycle.sh` are the
@@ -344,34 +350,35 @@ everything below as opt-in, not a continuation of the install sequence.
 ### Which ones to run, and in what order
 
 Most of these scripts are independent of each other and can be run in
-any order, whenever you want that particular hardening step. Two real
-dependencies exist, though, and getting them backwards either fails
-outright or quietly skips a verification step:
+any order, whenever you want that particular hardening step. One real
+dependency exists within `hardening/` itself, and one more against
+`scripts/install/11-remove-test-users.sh` (which moved into `install/`
+since it's still one-time setup, not an ongoing hardening concern —
+see "Run the scripts as root" above); getting either backwards either
+fails outright or quietly skips a verification step:
 
 - **`postgresql.sh` before `gerrit-postgresql.sh`/`gitea-postgresql.sh`**
   — the latter two need the `GERRIT_DB_PW`/`GITEA_DB_PW` that
   `postgresql.sh` prints once when it creates the roles. Run it,
   capture the output, then the other two (in either order relative to
   each other).
-- **`ldap-least-privilege.sh` before `remove-test-users.sh`, not
-  after** — `ldap-least-privilege.sh`'s own verification step logs in
-  as `alice` and `carol` to *prove* the new ACL lockdown actually
+- **`ldap-least-privilege.sh` before `scripts/install/11-remove-test-users.sh`,
+  not after** — `ldap-least-privilege.sh`'s own verification step logs
+  in as `alice` and `carol` to *prove* the new ACL lockdown actually
   blocks/allows the right things; if the test users are already
   deleted, it has nothing to verify with and fails. Do the LDAP
-  lockdown while the test users still exist, remove them last.
-- **`remove-test-users.sh` also needs `gerrit-bot` already set up**
-  first — that's a manual `ggadmin-user add gerrit-bot ...` command
-  (ADMIN.md's "Setting up the Gerrit service account"), not a script,
-  since the existing day-2 tooling already does the whole job.
+  lockdown while the test users still exist; removing them is
+  `install/`'s job, done last.
 
 Everything else (`set-service-credentials.sh`, `nginx-tls.sh`) has no
 ordering constraint against the others — run them whenever the
 credential you want to rotate exists, or whenever you want TLS. This
 is also why none of these files are numbered, unlike `install/`: there
-is no single sequence to number them by, just these few pairwise
-dependencies plus a handful of order-independent scripts.
+is no single sequence to number them by, just the one pairwise
+dependency above plus a handful of order-independent scripts.
 
-A reasonable full sequence, doing everything:
+A reasonable full sequence, doing everything including the final
+test-user cleanup:
 
 ```
 sudo bash scripts/hardening/postgresql.sh                 # prints GERRIT_DB_PW/GITEA_DB_PW
@@ -380,13 +387,13 @@ sudo GITEA_DB_PW='...'  bash scripts/hardening/gitea-postgresql.sh
 sudo bash scripts/hardening/nginx-tls.sh
 sudo LDAP_ADMIN_PW='...' ALICE_PW='...' CAROL_PW='...' \
   bash scripts/hardening/ldap-least-privilege.sh
-sudo LDAP_ADMIN_PW='...' bash scripts/hardening/set-service-credentials.sh ldap-admin ldap-reader gitea-admin gerrit-replication
+sudo LDAP_ADMIN_PW='...' bash scripts/hardening/set-service-credentials.sh all
 # ^ prints a NEW ldap-admin password -- every '...' placeholder below
 # means that new value, not the one used above.
 # manual, not a script -- see ADMIN.md "Setting up the Gerrit service account":
 sudo LDAP_ADMIN_PW='...' ggadmin-user add gerrit-bot "Gerrit Service Account" gerrit-bot@tkos.co.il admins
 sudo LDAP_ADMIN_PW='...' GERRIT_ADMIN_PW='...' GITEA_ADMIN_PW='...' \
-  bash scripts/hardening/remove-test-users.sh
+  bash scripts/install/11-remove-test-users.sh
 ```
 
 Each script's own header comment has the exact credentials it needs and
@@ -396,31 +403,36 @@ and why, not how to sequence them.
 ### Status
 
 - [x] **Replace every `ChangeMe123!` credential** — done, via two
-  tools with different scopes. Non-human "special" accounts (the LDAP
-  admin bind, the `ldap-reader` search bind if `scripts/hardening/ldap-least-privilege.sh`
-  has been run, and Gitea's two local accounts `gitea-admin`/
+  tools with different scopes. **`scripts/install/` on its own does
+  NOT do this** — `ldap-admin`, `gitea-admin`, and `gerrit-replication`
+  are all still `ChangeMe123!` after a fresh install finishes, and
+  `ldap-reader` doesn't even exist yet; that's deliberate (see "Every
+  account in this lab uses the password `ChangeMe123!`" above), not an
+  oversight, since scripts/install/02-10 rely on it being the same
+  known value every run. Rotating is this separate, opt-in step. Non-
+  human "special" accounts (the LDAP admin bind, the `ldap-reader`
+  search bind if `scripts/hardening/ldap-least-privilege.sh` has been
+  run, and Gitea's two local accounts `gitea-admin`/
   `gerrit-replication`) go through `scripts/hardening/set-service-credentials.sh
-  <account> [<account> ...]`, one or more at a time — it updates every
-  place each account's password is stored (Gerrit's `secure.config`/
-  `replication.config`, Gitea's LDAP auth source) and restarts whatever
-  needs it, verifying the new password actually authenticates rather
-  than trusting the update call succeeded. Real LDAP people (any real
+  <account> [<account> ...]`, one or more at a time, **or `all` to
+  rotate every one of them that currently exists in a single command**
+  — it updates every place each account's password is stored (Gerrit's
+  `secure.config`/`replication.config`, Gitea's LDAP auth source) and
+  restarts whatever needs it, verifying the new password actually
+  authenticates rather than trusting the update call succeeded. Real LDAP people (any real
   named account under `ou=people`) go through `ggadmin-user
   set-password <uid>` instead (ADMIN.md section 1) — not this script,
   since they're not "special" accounts. **After running either against
   a fresh install, `scripts/install/02` through `scripts/install/10`
   can no longer be blindly rerun**, since they hard-code the `ChangeMe123!` credentials
   these tools replace; that's expected, their job (bootstrap the lab)
-  is already done.
-- [x] **Remove the lab test users** — done, via
-  `scripts/hardening/remove-test-users.sh`. `alice`/`bob`/`carol`
-  aren't "special" accounts either, and shouldn't survive into Day-2 at
-  all; this isn't just three `offboard` calls, though, since `alice`/
-  `bob` are the only members of the `developers` LDAP group and
-  `groupOfNames` can't have zero members — see ADMIN.md's "Removing the
-  lab test users" (section 1) for the full procedure this script
-  automates, including the now-empty-group cleanup and what recreating
-  it for the first real developer looks like.
+  is already done. The lab test users `alice`/`bob`/`carol` aren't
+  "special" accounts either and shouldn't survive into Day-2, but
+  removing them is `scripts/install/11-remove-test-users.sh`'s job now
+  (see "Run the scripts as root" above and ADMIN.md's "Removing the lab
+  test users") — not part of this credential-rotation step, just worth
+  sequencing after `ldap-least-privilege.sh` below if you're doing both
+  (see "Which ones to run, and in what order").
 - [x] **Dedicated, least-privilege LDAP bind account** — done, via
   `scripts/hardening/ldap-least-privilege.sh`. Replaced the directory admin DN
   Gerrit/Gitea had been reusing (a deliberate shortcut during initial

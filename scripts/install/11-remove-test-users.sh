@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
-# Production hardening: remove the lab test users (alice/bob/carol)
+# The last install step: remove the lab test users (alice/bob/carol)
 # created by scripts/install/02-openldap.sh, once they're no longer
 # needed for testing -- see ADMIN.md's "Removing the lab test users"
 # for the full rationale; this script automates the procedure
-# documented there instead of leaving it to a manual walkthrough.
+# documented there instead of leaving it to a manual walkthrough. Like
+# scripts/install/10-delete-project-plugin.sh, this is one-time setup,
+# just optional and meant to run last -- not a continuation of the
+# required 01-09 sequence.
 #
 # Run as root:
 #   sudo LDAP_ADMIN_PW='...' GERRIT_ADMIN_PW='...' GITEA_ADMIN_PW='...' \
-#     bash remove-test-users.sh
+#     bash 11-remove-test-users.sh
 #
 # Prerequisite: gerrit-bot must already exist and hold Gerrit admin
 # rights (see ADMIN.md's "Setting up the Gerrit service account" --
@@ -18,6 +21,13 @@
 # isn't set up yet, this script fails on the carol step with that exact
 # explanation (from scripts/day2/user-lifecycle.sh's own offboard
 # guard), not a confusing LDAP error.
+#
+# If you're also running scripts/hardening/ldap-least-privilege.sh, run
+# it BEFORE this script, not after -- its own verification step logs in
+# as alice/carol to prove the new ACL lockdown works, and has nothing
+# to verify with once they're gone (SYSADMIN.md's "Which ones to run,
+# and in what order" covers this in full). Nothing else in
+# scripts/hardening/ has any ordering relationship with this script.
 #
 # Reuses scripts/day2/user-lifecycle.sh's `offboard --delete-entry`
 # for each of the three users -- same LDAP-removal + Gerrit/Gitea-
@@ -31,15 +41,16 @@
 #
 # DESTRUCTIVE, but narrowly scoped and expected: this only ever touches
 # alice/bob/carol and the developers group, never a real account. Not
-# reversible -- matches scripts/hardening/set-service-credentials.sh's credential rotation: a
-# one-way step towards Day-2, not something that needs an interactive
-# confirmation prompt every time (unlike scripts/teardown/21-22, which
-# affect everything, this affects three specific, always-lab-only
-# accounts). After this runs, several install/hardening scripts that
-# authenticate as carol/alice/bob (scripts/install/04-07/09/10,
-# scripts/hardening/ldap-least-privilege.sh, scripts/hardening/gerrit-postgresql.sh,
-# scripts/hardening/gitea-postgresql.sh) can no longer be blindly rerun
-# on this host -- expected, their job is already done.
+# reversible -- comparable to scripts/hardening/set-service-credentials.sh's
+# credential rotation: a one-way step towards Day-2, not something that
+# needs an interactive confirmation prompt every time (unlike
+# scripts/teardown/21-22, which affect everything, this affects three
+# specific, always-lab-only accounts). After this runs, several
+# install/hardening scripts that authenticate as carol/alice/bob
+# (scripts/install/04-07/09/10, scripts/hardening/ldap-least-privilege.sh,
+# scripts/hardening/gerrit-postgresql.sh, scripts/hardening/gitea-postgresql.sh)
+# can no longer be blindly rerun on this host -- expected, their job is
+# already done.
 #
 # Safe to rerun: offboard is already idempotent (an already-gone user
 # is a no-op, logged not errored), and the developers group is only

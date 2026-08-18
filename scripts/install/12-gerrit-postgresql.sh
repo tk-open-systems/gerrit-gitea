@@ -43,7 +43,7 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../lib.sh"
 require_root
 
 : "${GERRIT_DB_PW:?Set GERRIT_DB_PW to the gerrit Postgres roles password from scripts/install/11-postgresql.sh}"
-: "${CAROL_PW:?Set CAROL_PW to carols current password}"
+: "${CAROL_PW:?Set CAROL_PW to carols current LDAP password. Test-lab default: ChangeMe123! (printed by scripts/install/02-openldap.sh); only different if someone ran scripts/day2/user-lifecycle.sh set-password carol since.}"
 
 SITE=/var/lib/gerrit
 GERRIT_URL="http://127.0.0.1:8080"

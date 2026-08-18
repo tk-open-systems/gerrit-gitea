@@ -185,7 +185,7 @@ EOF
 
 set_ldap_reader() {
   reader_exists || die "cn=ldap-reader does not exist -- scripts/post-install/ldap-least-privilege.sh has not been run on this host, nothing to change"
-  : "${LDAP_ADMIN_PW:?Set LDAP_ADMIN_PW to cn=admin current password, needed to authenticate this change}"
+  : "${LDAP_ADMIN_PW:?Set LDAP_ADMIN_PW to cn=admins current password, needed to authenticate this change. Test-lab default: ChangeMe123! (printed by scripts/install/02-openldap.sh); only different if this script already rotated ldap-admin (or 'all') before.}"
   local new_pw=${NEW_LDAP_READER_PW:-$(gen_pw)}
   local hash; hash=$(/usr/sbin/slappasswd -s "$new_pw")
   ldapmodify -x -D "$ADMIN_DN" -w "$LDAP_ADMIN_PW" -H ldap://localhost <<EOF

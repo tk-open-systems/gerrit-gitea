@@ -64,9 +64,9 @@ GITEA_URL="http://127.0.0.1:3000"
 # Current passwords, likely already rotated off the lab default by
 # scripts/post-install/set-service-credentials.sh -- nothing persists them anywhere, so they must be passed
 # in rather than hard-coded.
-: "${LDAP_ADMIN_PW:?Set LDAP_ADMIN_PW to the current cn=admin password}"
-: "${ALICE_PW:?Set ALICE_PW to alices current password}"
-: "${CAROL_PW:?Set CAROL_PW to carols current password}"
+: "${LDAP_ADMIN_PW:?Set LDAP_ADMIN_PW to cn=admins current password. Test-lab default: ChangeMe123! (printed by scripts/install/02-openldap.sh); only different if someone ran scripts/post-install/set-service-credentials.sh ldap-admin (or 'all') since.}"
+: "${ALICE_PW:?Set ALICE_PW to alices current LDAP password. Test-lab default: ChangeMe123! (printed by scripts/install/02-openldap.sh); only different if someone ran scripts/day2/user-lifecycle.sh set-password alice since.}"
+: "${CAROL_PW:?Set CAROL_PW to carols current LDAP password. Test-lab default: ChangeMe123! (printed by scripts/install/02-openldap.sh); only different if someone ran scripts/day2/user-lifecycle.sh set-password carol since.}"
 
 READER_PW=$(openssl rand -base64 24 | tr -dc 'A-Za-z0-9' | head -c 24; echo)
 

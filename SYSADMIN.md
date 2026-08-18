@@ -35,6 +35,11 @@ submit → replicate → issue-auto-close cycle.
       AccountPatchReviewDb off H2
 - [x] `scripts/install/13-gitea-postgresql.sh` — migrates Gitea off
       SQLite, preserving all data
+- [x] `scripts/install/14-gerrit-service-account.sh` — creates `gerrit-bot`,
+      the dedicated non-human account holding Gerrit admin rights, and
+      confirms it — required before
+      `scripts/post-install/final-remove-test-users.sh` (see "Post-install"
+      below), which errors outright without it
 - [x] `scripts/post-install/set-service-credentials.sh` — sets/changes the
       password for one or more of the non-human "special" accounts
       (`ldap-admin`, `ldap-reader`, `gitea-admin`, `gerrit-replication`),
@@ -171,7 +176,7 @@ required too outside of a disposable lab. Everything past `09`,
 across every `scripts/` subdirectory, serves a different purpose
 rather than continuing one sequence:
 
-- **`scripts/install/10` through `13`** — four more scripts left in
+- **`scripts/install/10` through `14`** — five more scripts left in
   `install/` after the required run above, all one-time setup, but not
   equally optional:
   - `10-delete-project-plugin.sh` enables the Gerrit plugin
@@ -185,6 +190,16 @@ rather than continuing one sequence:
     care about. Run `11` first and capture the `GERRIT_DB_PW`/
     `GITEA_DB_PW` it prints, then `12` and `13` (either order relative
     to each other).
+  - `14-gerrit-service-account.sh` creates `gerrit-bot` — the dedicated,
+    non-human account meant to hold Gerrit admin rights instead of a
+    real person (ADMIN.md's "Setting up the Gerrit service account").
+    Needs `05-gerrit-acl.sh` already run (the `admins` LDAP group and
+    Gerrit's own LDAP auth). Effectively required, same as `11`-`13`:
+    `scripts/post-install/final-remove-test-users.sh` hard-depends on
+    `gerrit-bot` already existing (carol and gerrit-bot are the only two
+    members of `admins`, and LDAP refuses to empty a `groupOfNames`) —
+    skipping this script is exactly what produces "uid=carol is the
+    last member of 'admins'" out of that one later.
 - **`scripts/post-install/`** — closes the gap between "installed" and
   "not shipping known-insecure defaults," which `install/` deliberately
   leaves open for reproducibility (see "Every account in this lab uses
@@ -415,6 +430,12 @@ two-script exception in an otherwise unordered directory.
   `final-remove-test-users.sh`'s job, done last. (`scripts/install/12-gerrit-postgresql.sh`
   and `13-gitea-postgresql.sh` have this exact same constraint, for the
   same reason — see "Run the scripts as root" above.)
+- **`scripts/install/14-gerrit-service-account.sh` before
+  `final-remove-test-users.sh`, harder than the constraint above** —
+  not just "verification fails without it," `final-remove-test-users.sh`
+  errors outright: carol and `gerrit-bot` are the only two members of
+  the LDAP `admins` group, so removing carol while `gerrit-bot` doesn't
+  exist yet would empty a `groupOfNames`, which LDAP refuses.
 
 `set-service-credentials.sh` has no ordering constraint against
 `ldap-least-privilege.sh` or `final-remove-test-users.sh` — run it
@@ -428,15 +449,15 @@ sudo LDAP_ADMIN_PW='...' ALICE_PW='...' CAROL_PW='...' \
 sudo LDAP_ADMIN_PW='...' bash scripts/post-install/set-service-credentials.sh all
 # ^ prints a NEW ldap-admin password -- every '...' placeholder below
 # means that new value, not the one used above.
-# manual, not a script -- see ADMIN.md "Setting up the Gerrit service account":
-sudo LDAP_ADMIN_PW='...' ggadmin-user add gerrit-bot "Gerrit Service Account" gerrit-bot@tkos.co.il admins
 sudo LDAP_ADMIN_PW='...' GERRIT_ADMIN_PW='...' GITEA_ADMIN_PW='...' \
   bash scripts/post-install/final-remove-test-users.sh
 ```
 
-(This assumes `scripts/install/11-13` -- PostgreSQL -- already ran as
-part of `install/`, since `12`/`13` share the same "before
-`final-remove-test-users.sh`" constraint above.)
+(This assumes `scripts/install/11-14` -- PostgreSQL and the `gerrit-bot`
+service account -- already ran as part of `install/`, since `12`-`14`
+each share some form of the "before `final-remove-test-users.sh`"
+constraint above -- `14` a hard failure, `12`/`13` a failed
+verification.)
 
 Each script's own header comment has the exact credentials it needs and
 where to get them; the status list below explains what each one does

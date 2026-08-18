@@ -52,9 +52,11 @@
 # comments, wiki metadata, notifications, ...) copies cleanly.
 #
 # Verification is data-focused, not just "did Gitea start": confirms
-# specific known records survived across several different tables
-# (a user, an org, a team, an issue, a wiki page), does a real write
-# (a new issue) to confirm the app can actually write to the new
+# specific known records survived across several different tables (a
+# user, an org, a team, an issue), does a real write (a new issue, and
+# a wiki page if none exists yet -- wikis live in their own git repo,
+# untouched by this migration, so there's nothing pre-existing to
+# assert survived) to confirm the app can actually write to the new
 # backend, and exercises the LDAP login + group-sync path end to end.
 #
 # Safe to rerun: it always drops and rebuilds giteadb from scratch
@@ -165,8 +167,25 @@ print(teams[0]["id"] if teams else "")')
 DEV_MEMBERS=$(gitea_api "${GITEA_URL}/api/v1/teams/${DEV_TEAM_ID}/members" | python3 -c 'import json,sys; print([m["login"] for m in json.load(sys.stdin)])')
 echo "$DEV_MEMBERS" | grep -q alice || die "alice is no longer a member of Developers after migration"
 gitea_api -o /dev/null "${GITEA_URL}/api/v1/repos/engineering/replication-test/issues/1" || die "issue #1 missing after migration"
-gitea_api -o /dev/null "${GITEA_URL}/api/v1/repos/engineering/replication-test/wiki/page/Home" || die "wiki page 'Home' missing after migration"
-log "confirmed: a user, an org, a team (with correct membership), an issue, and a wiki page all survived the migration"
+log "confirmed: a user, an org, a team (with correct membership), and an issue all survived the migration"
+
+# Unlike the checks above, nothing in scripts/install/ ever creates a
+# wiki page -- it lives in its own git repo
+# (engineering/replication-test.wiki.git), entirely separate from the
+# SQL database this script migrates, so there is no pre-existing page
+# to assert survived. Create one now if this is the first run, so the
+# read-back below is a real live check instead of an assumption about
+# unautomated manual state.
+if gitea_api -o /dev/null "${GITEA_URL}/api/v1/repos/engineering/replication-test/wiki/page/Home" 2>/dev/null; then
+  log "wiki page 'Home' already exists"
+else
+  gitea_api -X POST -H 'Content-Type: application/json' \
+    -d "{\"title\": \"Home\", \"content_base64\": \"$(echo -n '# replication-test' | base64 -w0)\"}" \
+    "${GITEA_URL}/api/v1/repos/engineering/replication-test/wiki/new" >/dev/null
+  log "created wiki page 'Home' (none existed yet)"
+fi
+gitea_api -o /dev/null "${GITEA_URL}/api/v1/repos/engineering/replication-test/wiki/page/Home" || die "wiki page 'Home' unreadable even after creating it -- wiki feature is broken after migration"
+log "confirmed: the wiki (its own git repo, untouched by this migration) is still reachable through the new Postgres-backed Gitea"
 
 AFTER_ISSUE_COUNT=$(gitea_api "${GITEA_URL}/api/v1/repos/engineering/replication-test/issues?state=all&limit=50" \
   | python3 -c 'import json,sys; print(len(json.load(sys.stdin)))')

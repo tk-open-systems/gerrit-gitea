@@ -257,6 +257,12 @@ cmd_offboard() {
     [ -n "$g" ] || continue
     had_groups=1
     if [ "$(group_member_count "$g")" -le 1 ]; then
+      if [ "$g" = "admins" ] && ! user_exists gerrit-bot; then
+        die "uid=${uid} is the last member of 'admins' -- 'admins' is the group granting Gerrit/Gitea admin rights (ADMIN.md section 1), so this would remove the last admin. groupOfNames requires at least one member, so LDAP would reject removing them (the 'Object class violation' error).
+Likely cause: gerrit-bot -- the dedicated service account meant to hold this seat instead of a real person (see ADMIN.md's \"Setting up the Gerrit service account\") -- doesn't exist on this host yet. Create it first, then rerun offboard:
+  sudo LDAP_ADMIN_PW='...' ${SCRIPT_NAME} add gerrit-bot \"Gerrit Service Account\" gerrit-bot@tkos.co.il admins
+Note: uid=${uid} may have already been removed from other groups above before this one was hit -- rerun offboard afterward to finish the rest."
+      fi
       hint=""
       [ "$g" = "admins" ] && hint=" -- '${g}' is the group granting Gerrit/Gitea admin rights (ADMIN.md section 1), so this would remove the last admin"
       die "uid=${uid} is the last member of '${g}'${hint}. groupOfNames requires at least one member, so LDAP would reject removing them (the 'Object class violation' error). Add another member to '${g}' first (${SCRIPT_NAME} add-group <other-uid> ${g}), or delete '${g}' outright if you mean for it to be gone. Note: uid=${uid} may have already been removed from other groups above before this one was hit -- rerun offboard afterward to finish the rest."

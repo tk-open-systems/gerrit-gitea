@@ -89,9 +89,15 @@ DEV_DN="cn=developers,ou=groups,${BASE_DN}"
 ldap_search() { ldapsearch -x -D "$ADMIN_DN" -w "$LDAP_ADMIN_PW" -H ldap://localhost "$@"; }
 
 if ldap_search -b "$DEV_DN" -s base "(objectClass=*)" dn >/dev/null 2>&1; then
+  # grep -v exits 1 (not just "0 matches printed") when every line is
+  # filtered out -- exactly the alice/bob-only case this check exists to
+  # detect -- which pipefail would otherwise treat as this whole command
+  # failing; `|| true` on the full pipeline is the same guard already
+  # used for MEMBER_COUNT-style counts elsewhere in this project.
   OTHER_MEMBERS=$(ldap_search -b "$DEV_DN" -s base "(objectClass=*)" member 2>/dev/null \
     | sed -n 's/^member: //p' \
-    | grep -vFx -e "uid=alice,ou=people,${BASE_DN}" -e "uid=bob,ou=people,${BASE_DN}" | wc -l)
+    | grep -vFx -e "uid=alice,ou=people,${BASE_DN}" -e "uid=bob,ou=people,${BASE_DN}" \
+    | wc -l || true)
   if [ "$OTHER_MEMBERS" -eq 0 ]; then
     ldapdelete -x -D "$ADMIN_DN" -w "$LDAP_ADMIN_PW" -H ldap://localhost "$DEV_DN"
     log "deleted LDAP group ${DEV_DN} up front -- alice/bob were its only members, and offboard can't empty a group one member-delete at a time"

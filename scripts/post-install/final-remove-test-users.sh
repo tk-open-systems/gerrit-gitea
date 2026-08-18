@@ -43,6 +43,16 @@
 # `developers` alongside alice/bob before this runs, the group is left
 # alone instead -- it's no longer actually empty.)
 #
+# That group deletion has to happen BEFORE offboarding alice/bob, not
+# after: offboard removes a uid from each of its groups with one
+# member-delete at a time, and LDAP refuses to let that delete leave a
+# groupOfNames with zero members. If alice and bob are the only two
+# members, there is no order to offboard them in that empties the group
+# that way -- whichever of the two goes second always hits that guard
+# and dies. Deleting the whole group entry first sidesteps it entirely:
+# once cn=developers doesn't exist, offboard's per-group loop finds
+# nothing to remove alice/bob from there in the first place.
+#
 # DESTRUCTIVE, but narrowly scoped and expected: this only ever touches
 # alice/bob/carol and the developers group, never a real account. Not
 # reversible, same as scripts/post-install/set-service-credentials.sh's
@@ -56,7 +66,8 @@
 #
 # Safe to rerun: offboard is already idempotent (an already-gone user
 # is a no-op, logged not errored), and the developers group is only
-# deleted if it's actually still present and actually empty.
+# deleted if it's actually still present and would actually end up
+# empty.
 set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../lib.sh"
 require_root
@@ -70,27 +81,31 @@ for var in LDAP_ADMIN_PW GERRIT_ADMIN_PW GITEA_ADMIN_PW; do
   Rerun with it set: sudo LDAP_ADMIN_PW='...' GERRIT_ADMIN_PW='...' GITEA_ADMIN_PW='...' bash ${SCRIPT_NAME}"
 done
 
-for uid in carol alice bob; do
-  log "offboarding ${uid} (--delete-entry)..."
-  bash "$OFFBOARD" offboard "$uid" --delete-entry
-done
-
-# --- delete cn=developers only if it's actually empty now ---
+# --- delete cn=developers UP FRONT if alice/bob are its only members ---
+# See the header comment for why this has to happen before offboarding
+# alice/bob, not after.
 ADMIN_DN="cn=admin,${BASE_DN}"
 DEV_DN="cn=developers,ou=groups,${BASE_DN}"
 ldap_search() { ldapsearch -x -D "$ADMIN_DN" -w "$LDAP_ADMIN_PW" -H ldap://localhost "$@"; }
 
 if ldap_search -b "$DEV_DN" -s base "(objectClass=*)" dn >/dev/null 2>&1; then
-  MEMBER_COUNT=$(ldap_search -b "$DEV_DN" -s base "(objectClass=*)" member 2>/dev/null | grep -c '^member:' || true)
-  if [ "$MEMBER_COUNT" -eq 0 ]; then
+  OTHER_MEMBERS=$(ldap_search -b "$DEV_DN" -s base "(objectClass=*)" member 2>/dev/null \
+    | sed -n 's/^member: //p' \
+    | grep -vFx -e "uid=alice,ou=people,${BASE_DN}" -e "uid=bob,ou=people,${BASE_DN}" | wc -l)
+  if [ "$OTHER_MEMBERS" -eq 0 ]; then
     ldapdelete -x -D "$ADMIN_DN" -w "$LDAP_ADMIN_PW" -H ldap://localhost "$DEV_DN"
-    log "deleted now-empty LDAP group ${DEV_DN}"
+    log "deleted LDAP group ${DEV_DN} up front -- alice/bob were its only members, and offboard can't empty a group one member-delete at a time"
     log "note: onboarding the first real developer needs this group recreated with them as its initial member -- see ADMIN.md's \"Removing the lab test users\" for the exact ldapmodify snippet."
   else
-    log "LDAP group ${DEV_DN} still has ${MEMBER_COUNT} member(s) besides alice/bob -- a real developer must already be in it, leaving it in place"
+    log "LDAP group ${DEV_DN} has ${OTHER_MEMBERS} member(s) besides alice/bob -- a real developer must already be in it, leaving it in place"
   fi
 else
   log "LDAP group ${DEV_DN} already gone"
 fi
+
+for uid in carol alice bob; do
+  log "offboarding ${uid} (--delete-entry)..."
+  bash "$OFFBOARD" offboard "$uid" --delete-entry
+done
 
 log "=== done. alice/bob/carol are removed from LDAP and deactivated in Gerrit/Gitea. ==="

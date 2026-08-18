@@ -193,12 +193,20 @@ command" above) — Gerrit's `ldap.accountPattern`
 (`scripts/install/04-gerrit.sh`) only recognizes `inetOrgPerson` entries under
 `ou=people` as valid accounts, so an `ou=services` entry would never be
 able to log in as a Gerrit account at all. Given that, the existing
-`ggadmin-user add` command already does everything needed — no new
-script required:
+`ggadmin-user add` command already does everything needed:
 
 ```
 sudo LDAP_ADMIN_PW='...' ggadmin-user add gerrit-bot "Gerrit Service Account" gerrit-bot@tkos.co.il admins
 ```
+
+A fresh install now runs this for you —
+`scripts/install/14-gerrit-service-account.sh` wraps the exact command
+above (idempotent: skips creation and just checks group membership if
+`gerrit-bot` already exists), plus the `administrateServer` check
+below, so `scripts/post-install/final-remove-test-users.sh` doesn't hit
+"uid=carol is the last member of 'admins'" later. Run it by hand only
+if you're re-creating `gerrit-bot` after it was deleted, or catching up
+a host that skipped it.
 
 This creates the LDAP entry, adds it to `admins` (the same group carol
 is in — see the trade-off note below), and prints a freshly generated

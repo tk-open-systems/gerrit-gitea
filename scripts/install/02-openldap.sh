@@ -118,6 +118,7 @@ EOF
 )" "$ADMIN_DN" "$TEST_PW"
 
 log "ou=people, ou=groups, users alice/bob/carol, groups developers/admins are all present."
+log "alice/bob/carol password (test-lab only): ${TEST_PW}"
 
 # --- 5. sanity check: bind as alice ---
 ldapwhoami -x -D "uid=alice,ou=people,${BASE_DN}" -w "${TEST_PW}" -H ldapi:///

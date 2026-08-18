@@ -69,7 +69,7 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../lib.sh"
 require_root
 
 : "${GITEA_DB_PW:?Set GITEA_DB_PW to the gitea Postgres roles password from scripts/install/11-postgresql.sh}"
-: "${GITEA_ADMIN_PW:?Set GITEA_ADMIN_PW to gitea-admins current password}"
+: "${GITEA_ADMIN_PW:?Set GITEA_ADMIN_PW to gitea-admins current password. Test-lab default: ChangeMe123! (printed by scripts/install/03-gitea.sh); only different if someone ran scripts/post-install/set-service-credentials.sh gitea-admin since.}"
 : "${CAROL_PW:?Set CAROL_PW to carols current LDAP password. Test-lab default: ChangeMe123! (printed by scripts/install/02-openldap.sh); only different if someone ran scripts/day2/user-lifecycle.sh set-password carol since.}"
 
 APP_INI=/etc/gitea/app.ini
@@ -147,6 +147,14 @@ wait_for_http "${GITEA_URL}/api/healthz" 60 \
 
 # --- verify: specific known records survived, across several different tables ---
 gitea_api() { curl -fsS -u "gitea-admin:${GITEA_ADMIN_PW}" "$@"; }
+
+# Checked on its own first: curl -f turns a 401 (wrong GITEA_ADMIN_PW)
+# and a 404 (record actually missing) into the same generic nonzero
+# exit, so without this every check below would misreport a bad
+# credential as e.g. "user 'alice' missing after migration".
+gitea_api -o /dev/null "${GITEA_URL}/api/v1/user" \
+  || die "gitea-admin authentication failed -- GITEA_ADMIN_PW is wrong (test-lab default: ChangeMe123!, printed by scripts/install/03-gitea.sh; only different if someone ran scripts/post-install/set-service-credentials.sh gitea-admin since)"
+log "confirmed: gitea-admin credentials are valid"
 
 gitea_api -o /dev/null "${GITEA_URL}/api/v1/users/alice" || die "user 'alice' missing after migration"
 gitea_api -o /dev/null "${GITEA_URL}/api/v1/orgs/engineering" || die "org 'engineering' missing after migration"

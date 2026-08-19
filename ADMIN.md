@@ -27,23 +27,32 @@ around them (why each step exists, what surprised us) is the part a
 script can't carry — but for real operations, prefer the script.
 
 Run `sudo bash scripts/day2/install-ggadmin-tools.sh` to put them on
-PATH under short names — `ggadmin-user` and `ggadmin-project` — so
-`sudo ggadmin-user offboard dave` works from anywhere without a
-`scripts/` path. That's what the rest of this file calls them as;
-before installing, substitute the full
-`scripts/day2/user-lifecycle.sh` / `scripts/day2/project-lifecycle.sh`
-path instead. It installs a standalone copy under
-`/usr/local/lib/gerrit-gitea/`, not a symlink into this repo clone —
-run it again any time you edit these scripts (or `git pull` a change
-to them) and want that change to actually take effect on this host.
+PATH under short names — `ggadmin-user`, `ggadmin-project`, and
+`ggadmin-verify-creds` — so `sudo ggadmin-user offboard dave` works
+from anywhere without a `scripts/` path. That's what the rest of this
+file calls them as; before installing, substitute the full
+`scripts/day2/user-lifecycle.sh` / `scripts/day2/project-lifecycle.sh` /
+`scripts/day2/verify-creds.sh` path instead. It installs a standalone
+copy under `/usr/local/lib/gerrit-gitea/`, not a symlink into this repo
+clone — run it again any time you edit these scripts (or `git pull` a
+change to them) and want that change to actually take effect on this
+host.
 
 ### Required credentials, per command
 
-Neither script stores or defaults any of these — every credential below
-has to be passed in on every invocation, as an env var on the `sudo`
-command line (sudo strips plain env vars otherwise; see each script's
-header for the exact syntax, or just run the command without them once
-— the error message gives you the exact fix). `LDAP_ADMIN_PW` and
+Neither `ggadmin-user` nor `ggadmin-project` stores or defaults any of
+these — every credential below has to be passed in on every invocation,
+as an env var on the `sudo` command line (sudo strips plain env vars
+otherwise; see each script's header for the exact syntax). Both scripts
+now also verify each credential is actually correct before doing
+anything else, not just that it's set — a stale password fails
+immediately with a line naming exactly which credential is wrong,
+rather than surfacing minutes later as a bare `curl: (22) ... 503` (or
+401) from deep inside some subcommand with no hint it's a credential
+problem at all. Run `sudo ggadmin-verify-creds` any time you just want
+to sanity-check credentials on their own — pass whichever of
+`LDAP_ADMIN_PW`/`GERRIT_ADMIN_PW`/`GITEA_ADMIN_PW` you want checked;
+any left unset are skipped, not failed. `LDAP_ADMIN_PW` and
 `GITEA_ADMIN_PW` are whatever `scripts/post-install/set-service-credentials.sh
 ldap-admin` / `... gitea-admin` last set them to, or still the install
 default `ChangeMe123!` if that was never run; `GERRIT_ADMIN_PW` is
@@ -92,7 +101,13 @@ where to reset one.
   credentials directly against LDAP bind — nothing is stored in Gerrit
   itself to rotate independently. The only way to change it is to
   change that account's LDAP `userPassword`
-  (`ggadmin-user set-password gerrit-bot`).
+  (`ggadmin-user set-password gerrit-bot`). A wrong `GERRIT_ADMIN_PW`
+  surfaces as **HTTP 503**, not the 401 you'd expect for bad
+  credentials — Gerrit's LDAP realm throws an unhandled
+  `AuthenticationException` (`error code 49 - Invalid Credentials` in
+  `journalctl -u gerrit`) on the rejected bind, and that propagates up
+  as a service error rather than a clean auth rejection. `ggadmin-*`'s
+  built-in credential check (above) already accounts for this.
 
 - **`GITEA_ADMIN_PW`** is the password for `gitea-admin`, a **local
   Gitea-only account, deliberately not LDAP-backed**

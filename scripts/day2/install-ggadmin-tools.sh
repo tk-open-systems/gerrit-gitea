@@ -3,14 +3,15 @@
 # scripts/day2/project-lifecycle.sh) onto this host's PATH under short
 # names, as a standalone copy this repo clone's continued existence is
 # never required for:
-#   1. Copies user-lifecycle.sh, project-lifecycle.sh, lib.sh, and
-#      config.sh into /usr/local/lib/gerrit-gitea/ (preserving the
-#      same day2/ subdirectory layout they have in this repo, so their
-#      own "source ../lib.sh" line resolves identically either way,
-#      unchanged).
-#   2. Symlinks the two entry points from there onto PATH:
-#        /usr/local/sbin/ggadmin-user    -> .../day2/user-lifecycle.sh
-#        /usr/local/sbin/ggadmin-project -> .../day2/project-lifecycle.sh
+#   1. Copies user-lifecycle.sh, project-lifecycle.sh, verify-creds.sh,
+#      lib.sh, and config.sh into /usr/local/lib/gerrit-gitea/
+#      (preserving the same day2/ subdirectory layout they have in this
+#      repo, so their own "source ../lib.sh" line resolves identically
+#      either way, unchanged).
+#   2. Symlinks the three entry points from there onto PATH:
+#        /usr/local/sbin/ggadmin-user          -> .../day2/user-lifecycle.sh
+#        /usr/local/sbin/ggadmin-project        -> .../day2/project-lifecycle.sh
+#        /usr/local/sbin/ggadmin-verify-creds   -> .../day2/verify-creds.sh
 #
 # Deliberately copies rather than symlinking straight into this repo
 # clone (an earlier version of this script did that): if the clone is
@@ -63,8 +64,8 @@ BIN_DIR=/usr/local/sbin
 # name -> source script under $DAY2_DIR, kept as two parallel arrays
 # for bash 4/5 portability (no need for associative-array ordering
 # guarantees).
-NAMES=(ggadmin-user ggadmin-project)
-SRCS=(user-lifecycle.sh project-lifecycle.sh)
+NAMES=(ggadmin-user ggadmin-project ggadmin-verify-creds)
+SRCS=(user-lifecycle.sh project-lifecycle.sh verify-creds.sh)
 
 [ -d "$BIN_DIR" ] || die "$BIN_DIR does not exist -- unexpected on a standard Debian host, check the base install"
 
@@ -79,7 +80,7 @@ for i in "${!NAMES[@]}"; do
 done
 log "copied lib.sh, config.sh, ${SRCS[*]} into ${LIB_DIR} -- this host's installed copy, independent of this repo clone from here on"
 
-# --- 2. symlink the two entry points from there onto PATH ---
+# --- 2. symlink the entry points from there onto PATH ---
 for i in "${!NAMES[@]}"; do
   name=${NAMES[$i]}
   src="${LIB_DIR}/day2/${SRCS[$i]}"

@@ -96,6 +96,14 @@ if [ -z "${LDAP_ADMIN_PW:-}" ]; then
   (invoking via sudo instead of already being root? put VAR=value right after the word sudo, since sudo otherwise drops plain env vars: sudo LDAP_ADMIN_PW=\"...\" ${SCRIPT_NAME} ${ORIG_ARGS_Q})"
 fi
 
+# Set != correct: a stale password would otherwise only surface later as a
+# cryptic ldapmodify/ldapsearch failure with no hint it's a password problem.
+# Fail fast here instead, naming the credential explicitly.
+verify_ldap_cred "LDAP_ADMIN_PW" "$ADMIN_DN" "$LDAP_ADMIN_PW" || die "LDAP_ADMIN_PW is wrong -- see the WARNING line above.
+  Get the current password from: scripts/post-install/set-service-credentials.sh ldap-admin printed it the last time that ran; if it was never run, it is still the install default, ChangeMe123!
+  Then rerun this exact command with it fixed:
+    LDAP_ADMIN_PW=\"...\" ${SCRIPT_NAME} ${ORIG_ARGS_Q}"
+
 gen_pw() { openssl rand -base64 24 | tr -dc 'A-Za-z0-9' | head -c 24; echo; }
 
 ldap_search() { ldapsearch -x -D "$ADMIN_DN" -w "$LDAP_ADMIN_PW" -H ldap://localhost "$@"; }
@@ -298,6 +306,15 @@ EOF
     GERRIT_ADMIN_PW=\"...\" GITEA_ADMIN_PW=\"...\" ${SCRIPT_NAME} ${orig_cmd}
   (invoking via sudo instead of already being root? put the same VAR=value pairs right after the word sudo, since sudo otherwise drops plain env vars: sudo GERRIT_ADMIN_PW=\"...\" GITEA_ADMIN_PW=\"...\" ${SCRIPT_NAME} ${orig_cmd})"
   fi
+  local creds_ok=1
+  verify_http_cred "GERRIT_ADMIN_PW" "${GERRIT_URL}/" "${GERRIT_URL}/a/accounts/self" "$GERRIT_ADMIN_USER" "$GERRIT_ADMIN_PW" || creds_ok=0
+  verify_http_cred "GITEA_ADMIN_PW" "${GITEA_URL}/" "${GITEA_URL}/api/v1/user" "$GITEA_ADMIN_USER" "$GITEA_ADMIN_PW" || creds_ok=0
+  if [ "$creds_ok" -eq 0 ]; then
+    die "one or more credentials are wrong -- see the WARNING line(s) above for exactly which, and why.
+  Get current passwords from: GERRIT_ADMIN_PW was printed once by whichever of \"ggadmin-user add gerrit-bot ...\" or \"ggadmin-user set-password gerrit-bot\" set it last (no bootstrap default -- it never was ChangeMe123!); GITEA_ADMIN_PW was printed by \"scripts/post-install/set-service-credentials.sh gitea-admin\" the last time that ran, or is still the install default ChangeMe123! if it never has.
+  Then rerun this exact command with them fixed:
+    GERRIT_ADMIN_PW=\"...\" GITEA_ADMIN_PW=\"...\" ${SCRIPT_NAME} ${orig_cmd}"
+  fi
 
   local acct_json account_id
   acct_json=$(curl -fsS -u "${GERRIT_ADMIN_USER}:${GERRIT_ADMIN_PW}" \
@@ -340,6 +357,15 @@ cmd_reactivate() {
   Then rerun this exact command with them set:
     GERRIT_ADMIN_PW=\"...\" GITEA_ADMIN_PW=\"...\" ${SCRIPT_NAME} ${orig_cmd}
   (invoking via sudo instead of already being root? put the same VAR=value pairs right after the word sudo, since sudo otherwise drops plain env vars: sudo GERRIT_ADMIN_PW=\"...\" GITEA_ADMIN_PW=\"...\" ${SCRIPT_NAME} ${orig_cmd})"
+  fi
+  local creds_ok=1
+  verify_http_cred "GERRIT_ADMIN_PW" "${GERRIT_URL}/" "${GERRIT_URL}/a/accounts/self" "$GERRIT_ADMIN_USER" "$GERRIT_ADMIN_PW" || creds_ok=0
+  verify_http_cred "GITEA_ADMIN_PW" "${GITEA_URL}/" "${GITEA_URL}/api/v1/user" "$GITEA_ADMIN_USER" "$GITEA_ADMIN_PW" || creds_ok=0
+  if [ "$creds_ok" -eq 0 ]; then
+    die "one or more credentials are wrong -- see the WARNING line(s) above for exactly which, and why.
+  Get current passwords from: GERRIT_ADMIN_PW was printed once by whichever of \"ggadmin-user add gerrit-bot ...\" or \"ggadmin-user set-password gerrit-bot\" set it last (no bootstrap default -- it never was ChangeMe123!); GITEA_ADMIN_PW was printed by \"scripts/post-install/set-service-credentials.sh gitea-admin\" the last time that ran, or is still the install default ChangeMe123! if it never has.
+  Then rerun this exact command with them fixed:
+    GERRIT_ADMIN_PW=\"...\" GITEA_ADMIN_PW=\"...\" ${SCRIPT_NAME} ${orig_cmd}"
   fi
 
   local acct_json account_id

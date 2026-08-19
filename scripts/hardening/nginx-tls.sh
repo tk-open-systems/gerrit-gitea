@@ -22,6 +22,12 @@
 # Safe to rerun: cert generation is skipped if a valid cert already
 # exists; the nginx site file is plain config, always just rewritten;
 # `nginx -t` validates before any reload.
+#
+# Host forwarded as $http_host, not $host -- same fix as
+# scripts/install/08-nginx.sh's HTTP blocks, and for the same reason:
+# these are non-standard ports too, so nginx's port-stripped $host
+# would mismatch the browser's Origin header and trip Gitea's CSRF
+# check on every state-changing request.
 set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../lib.sh"
 require_root
@@ -64,7 +70,7 @@ server {
 
 	location / {
 		proxy_pass http://127.0.0.1:8080;
-		proxy_set_header Host \$host;
+		proxy_set_header Host \$http_host;
 		proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
 		proxy_set_header X-Forwarded-Proto \$scheme;
 	}
@@ -81,7 +87,7 @@ server {
 
 	location / {
 		proxy_pass http://127.0.0.1:3000;
-		proxy_set_header Host \$host;
+		proxy_set_header Host \$http_host;
 		proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
 		proxy_set_header X-Forwarded-Proto \$scheme;
 		proxy_redirect off;

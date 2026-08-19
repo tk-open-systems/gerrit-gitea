@@ -8,6 +8,18 @@
 # X-Forwarded-For/-Proto from this proxy; Gitea gets the same headers
 # for consistency even though it's less strict about them.
 #
+# Host forwarded as $http_host, not $host -- confirmed live to matter
+# specifically because these are non-standard ports: nginx's $host is
+# defined to never include a port, but the browser's Origin header for
+# a non-default-port URL (e.g. http://host:8091) always does. Gitea's
+# CSRF check compares Origin against the Host header it receives, so
+# with $host every request came in as Origin "http://host:8091" vs Host
+# "host" (no port) -- a mismatch, rejected with "cross-origin request
+# detected ... Origin does not match Host" on every state-changing
+# request (e.g. creating a project), even though DOMAIN/ROOT_URL in
+# app.ini and this server_name all agreed. $http_host preserves the
+# port the client actually sent, matching Origin correctly.
+#
 # Safe to rerun: the site file is plain config (no secrets, no
 # generated values) so it's always just rewritten; `nginx -t` validates
 # before any reload, so a bad edit here fails loudly instead of taking
@@ -26,7 +38,7 @@ server {
 
 	location / {
 		proxy_pass http://127.0.0.1:8080;
-		proxy_set_header Host \$host;
+		proxy_set_header Host \$http_host;
 		proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
 		proxy_set_header X-Forwarded-Proto \$scheme;
 	}
@@ -39,7 +51,7 @@ server {
 
 	location / {
 		proxy_pass http://127.0.0.1:3000;
-		proxy_set_header Host \$host;
+		proxy_set_header Host \$http_host;
 		proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
 		proxy_set_header X-Forwarded-Proto \$scheme;
 		proxy_redirect off;

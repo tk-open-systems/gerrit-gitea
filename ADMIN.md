@@ -27,16 +27,27 @@ around them (why each step exists, what surprised us) is the part a
 script can't carry — but for real operations, prefer the script.
 
 Run `sudo bash scripts/day2/install-ggadmin-tools.sh` to put them on
-PATH under short names — `ggadmin-user`, `ggadmin-project`, and
-`ggadmin-verify-creds` — so `sudo ggadmin-user offboard dave` works
-from anywhere without a `scripts/` path. That's what the rest of this
-file calls them as; before installing, substitute the full
-`scripts/day2/user-lifecycle.sh` / `scripts/day2/project-lifecycle.sh` /
+PATH under short names — `ggadmin-user`, `ggadmin-project`,
+`ggadmin-group`, and `ggadmin-verify-creds` — so `sudo ggadmin-user
+offboard dave` works from anywhere without a `scripts/` path. That's
+what the rest of this file calls them as; before installing, substitute
+the full `scripts/day2/user-lifecycle.sh` /
+`scripts/day2/project-lifecycle.sh` / `scripts/day2/group-lifecycle.sh` /
 `scripts/day2/verify-creds.sh` path instead. It installs a standalone
 copy under `/usr/local/lib/gerrit-gitea/`, not a symlink into this repo
 clone — run it again any time you edit these scripts (or `git pull` a
 change to them) and want that change to actually take effect on this
 host.
+
+`ggadmin-group` (`scripts/day2/group-lifecycle.sh`) is the LDAP group's
+own lifecycle — create/delete/list-members — the gap left by
+`ggadmin-user add-group`/`remove-group`, which only manage MEMBERSHIP on
+a group that already exists. Confirmed live as a real gap, not
+hypothetical: `ggadmin-user add` defaults new users to `developers`
+when no group is given and refuses if it doesn't exist, which it won't
+on any host that's already run `final-remove-test-users.sh` (see
+"Removing the lab test users" below) — onboarding the first real
+developer after that needs the group recreated first.
 
 ### Required credentials, per command
 
@@ -75,6 +86,9 @@ the Gerrit service account" below).
 - **`ggadmin-project add / describe / delete`** — `GERRIT_ADMIN_PW` and
   `GITEA_ADMIN_PW` for all three; there's no LDAP-only path here since
   every project operation touches at least one of Gerrit or Gitea.
+- **`ggadmin-group create / delete / members`** — `LDAP_ADMIN_PW` only,
+  same reasoning as `ggadmin-user`'s LDAP-only subcommands above: this
+  never touches Gerrit or Gitea, only the shared LDAP directory.
 
 ### What these credentials are, and how they're set
 
@@ -489,14 +503,10 @@ sudo LDAP_ADMIN_PW='...' GERRIT_ADMIN_PW='...' GITEA_ADMIN_PW='...' \
   ggadmin-user offboard bob --delete-entry
 ```
 
-Then delete the now-empty `developers` group directly (no `ggadmin-*`
-subcommand manages groups themselves, only membership):
+Then delete the now-empty `developers` group directly:
 
 ```
-ldapmodify -x -D "cn=admin,dc=tkos,dc=co,dc=il" -w '<LDAP_ADMIN_PW>' -H ldap://localhost <<EOF
-dn: cn=developers,ou=groups,dc=tkos,dc=co,dc=il
-changetype: delete
-EOF
+sudo LDAP_ADMIN_PW='...' ggadmin-group delete developers
 ```
 
 `ggadmin-user add` defaults new users to the `developers` group when
@@ -507,17 +517,18 @@ needs a member at creation time too, so this can't be a bare empty
 group waiting for one):
 
 ```
-ldapmodify -x -D "cn=admin,dc=tkos,dc=co,dc=il" -w '<LDAP_ADMIN_PW>' -H ldap://localhost <<EOF
-dn: cn=developers,ou=groups,dc=tkos,dc=co,dc=il
-changetype: add
-objectClass: groupOfNames
-cn: developers
-member: uid=<first-real-developer>,ou=people,dc=tkos,dc=co,dc=il
-EOF
+sudo LDAP_ADMIN_PW='...' ggadmin-group create developers <first-real-developer-uid>
 ```
 
-After that, `ggadmin-user add <uid> <full name> <email>` (no explicit
-group) works again as documented above.
+(That person's LDAP entry needs to already exist first, but `ggadmin-user
+add` creates it *before* it gets to the group-membership step that would
+otherwise fail here — so running `ggadmin-user add <uid> <full name>
+<email>` first, letting it error out on the missing `developers` group,
+then `ggadmin-group create developers <uid>` right after, just works:
+the entry it created on that first, technically-failed run is still
+there.) After that, `ggadmin-user add <uid> <full name> <email>` (no
+explicit group) works again as documented above, for every subsequent
+developer.
 
 As with any offboard, nothing in Gerrit/Gitea's own history is
 touched — commits `scripts/install/05`/`07`/`09` and

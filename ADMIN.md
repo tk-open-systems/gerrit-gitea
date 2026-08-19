@@ -441,17 +441,16 @@ sudo LDAP_ADMIN_PW='...' GERRIT_ADMIN_PW='...' GITEA_ADMIN_PW='...' \
   bash scripts/post-install/final-remove-test-users.sh
 ```
 
-Run this LAST: `scripts/install/12-gerrit-postgresql.sh`,
-`13-gitea-postgresql.sh`, and (if you're also running it)
-`scripts/post-install/ldap-least-privilege.sh` all authenticate as
-`alice`/`carol` as part of their own verification, so all of them need
-to run *before* this script, not after — see SYSADMIN.md's "Which ones
-to run, and in what order" for why. If `ldap-least-privilege.sh` does
-need rerunning on a host that's already past this point (confirmed
-live: needed to re-create `ou=services` after it had somehow gone
-missing), point it at two other real, currently-existing accounts via
-`PROBER_UID`/`TARGET_UID` instead of `alice`/`carol` — see that
-script's header comment.
+Run this LAST relative to `scripts/install/12-gerrit-postgresql.sh` and
+`13-gitea-postgresql.sh`: both authenticate as `alice`/`carol` as part
+of their own verification, so they need to run *before* this script,
+not after — see SYSADMIN.md's "Which ones to run, and in what order"
+for why. `scripts/post-install/ldap-least-privilege.sh` does NOT have
+this constraint (it verifies against `gerrit-bot` instead, precisely so
+it doesn't care about this ordering — confirmed live: an earlier
+version of it depended on `alice`/`carol` too and broke the moment this
+script had already deleted them) — it's fine to run before or after
+`final-remove-test-users.sh`, in either order.
 
 The rest of this section is what that script actually runs, and why —
 read on if you want the manual version or the reasoning, otherwise the
@@ -528,11 +527,14 @@ other offboarded user's past work. And as SYSADMIN.md's "Which ones to
 run, and in what order" notes: once these three are gone, several
 other scripts stop working too, since they authenticate as `carol` —
 `scripts/install/04`-`07`/`09`/`10` hardcode her original
-`ChangeMe123!` password, while `scripts/install/12-gerrit-postgresql.sh`,
-`13-gitea-postgresql.sh`, and `scripts/post-install/ldap-least-privilege.sh`
-take `CAROL_PW` as a parameter instead but still need her account to
-exist at all. Expected either way — their job is already done, none of
-them are meant to be rerun against this already-bootstrapped host.
+`ChangeMe123!` password, while `scripts/install/12-gerrit-postgresql.sh`
+and `13-gitea-postgresql.sh` take `CAROL_PW` as a parameter instead but
+still need her account to exist at all. Expected either way — their job
+is already done, none of them are meant to be rerun against this
+already-bootstrapped host. (`scripts/post-install/ldap-least-privilege.sh`
+used to be in this list too, but no longer is — it verifies against
+`gerrit-bot` instead, specifically so removing the lab test users
+doesn't affect it.)
 
 ## 2. Project lifecycle
 

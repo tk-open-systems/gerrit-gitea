@@ -3,22 +3,31 @@
 # optional hardening -- this directory ships wide open (see below), so
 # treat this as required to close that gap for any real deployment,
 # same reasoning as scripts/post-install/set-service-credentials.sh.
-# Run as root, passing the CURRENT passwords for cn=admin, alice, and
-# carol (needed to verify the lockdown -- see step 5 below; `sudo`
-# strips the environment by default, so pass them on the sudo command
-# line, which sudo applies even under env_reset):
+# Run as root, passing cn=admin's and gerrit-bot's current passwords
+# (needed to verify the lockdown -- see step 5 below; `sudo` strips the
+# environment by default, so pass them on the sudo command line, which
+# sudo applies even under env_reset):
 #
-#   sudo LDAP_ADMIN_PW='...' ALICE_PW='...' CAROL_PW='...' \
+#   sudo LDAP_ADMIN_PW='...' GERRIT_ADMIN_PW='...' \
 #     bash ldap-least-privilege.sh
 #
-# alice/carol specifically only if this host hasn't run
-# scripts/post-install/final-remove-test-users.sh yet -- once it has, they're
-# gone for good and step 5 needs two OTHER real, currently-existing
-# accounts instead. Set PROBER_UID/TARGET_UID to pick which ones (still
-# via ALICE_PW/CAROL_PW for their respective passwords -- see below):
+# Self-contained by design -- no dependency on any particular script
+# having run first, or not yet. Step 5 verifies the lockdown using
+# gerrit-bot (PROBER_UID, default gerrit-bot) as the "regular user who
+# should not be able to browse the directory, but can still log in"
+# role, and the reader account's own entry (created by step 1 of this
+# very script, moments earlier) as the thing it tries to read/write --
+# both are things this project already treats as permanent, always-
+# present prerequisites, unlike the lab test users alice/bob/carol. An
+# earlier version of this script depended on alice/carol instead, and
+# broke -- confirmed live, not hypothetical -- the moment
+# scripts/post-install/final-remove-test-users.sh had already deleted
+# them, even though the actual lockdown it was trying to verify was
+# already correct. Override PROBER_UID/GERRIT_ADMIN_PW only if
+# gerrit-bot itself somehow doesn't exist yet on this host:
 #
-#   sudo LDAP_ADMIN_PW='...' PROBER_UID=dave ALICE_PW='...' \
-#     TARGET_UID=erin CAROL_PW='...' bash ldap-least-privilege.sh
+#   sudo LDAP_ADMIN_PW='...' PROBER_UID=<uid> GERRIT_ADMIN_PW='...' \
+#     bash ldap-least-privilege.sh
 #
 # This directory currently has NO explicit ACLs at all -- it runs on
 # OpenLDAP's compiled-in default, which protects userPassword but
@@ -38,18 +47,17 @@
 #      but ldap-reader gets general read access; everyone else (incl.
 #      anonymous) gets none. Regular users can still authenticate --
 #      BIND is a distinct LDAP operation from READ/SEARCH and doesn't
-#      require read access to succeed, so alice/bob/carol logging into
-#      Gerrit/Gitea is unaffected; only directory *browsing* is
-#      restricted.
+#      require read access to succeed, so logging into Gerrit/Gitea is
+#      unaffected; only directory *browsing* is restricted.
 #
 # Gerrit and Gitea are then repointed from cn=admin (full directory
 # write access, reused for search convenience during initial setup --
 # see scripts/install/02-openldap.sh) to this read-only account, and every
 # claim here is verified by actually testing as the restricted role,
-# not by trusting that the ACL text looks right: anonymous and a
-# regular user (alice) are both confirmed unable to browse the
-# directory afterward, ldap-reader is confirmed unable to write
-# anywhere, and carol logging into both Gerrit and Gitea (proving the
+# not by trusting that the ACL text looks right: anonymous and
+# gerrit-bot are both confirmed unable to browse the directory
+# afterward, ldap-reader is confirmed unable to write anywhere, and
+# gerrit-bot logging into both Gerrit and Gitea (proving the
 # search-then-bind-as-user auth flow still works through the new
 # reader account) is reverified end to end.
 #
@@ -70,43 +78,26 @@ GITEA="/usr/local/bin/gitea"
 GERRIT_URL="http://127.0.0.1:8080"
 GITEA_URL="http://127.0.0.1:3000"
 
-# Step 5's verification needs two DISTINCT, currently-real LDAP person
-# accounts: PROBER_UID attempts to read TARGET_UID's entry (must fail)
-# and log into Gerrit/Gitea (must still succeed). Default to the lab
-# test users alice/carol, same as always -- but those are only ever
-# real on a host that hasn't run scripts/post-install/final-remove-test-users.sh
-# yet (see this script's header comment on ordering). Once that's run,
-# alice/carol no longer exist, and this script cannot be blindly
-# rerun -- confirmed live, not hypothetical: an operator whose ACTUAL
-# lockdown was already correct hit "carol cannot log into Gerrit"
-# here, purely because carol herself was long gone, not because
-# anything was broken. Override both to a pair of real accounts that
-# still exist on this host to get a meaningful rerun instead:
-#   sudo LDAP_ADMIN_PW='...' PROBER_UID=dave ALICE_PW='...' \
-#     TARGET_UID=erin CAROL_PW='...' bash ldap-least-privilege.sh
-PROBER_UID="${PROBER_UID:-alice}"
-TARGET_UID="${TARGET_UID:-carol}"
+# Step 5's "regular user who should not be able to browse the
+# directory, but can still log into Gerrit/Gitea" role -- gerrit-bot by
+# default, since it's the one account this whole project already
+# treats as a permanent, always-present prerequisite (unlike
+# alice/bob/carol, which are explicitly temporary test fixtures -- see
+# scripts/post-install/final-remove-test-users.sh).
+PROBER_UID="${PROBER_UID:-gerrit-bot}"
 
-# Current passwords, likely already rotated off the lab default by
-# scripts/post-install/set-service-credentials.sh -- nothing persists them anywhere, so they must be passed
-# in rather than hard-coded. Despite the variable names, these are
-# PROBER_UID's and TARGET_UID's passwords respectively -- still named
-# ALICE_PW/CAROL_PW to match this script's whole history and every doc
-# that references it, for the common case where PROBER_UID/TARGET_UID
-# are left at their alice/carol defaults.
 : "${LDAP_ADMIN_PW:?Set LDAP_ADMIN_PW to cn=admins current password. Test-lab default: ChangeMe123! (printed by scripts/install/02-openldap.sh); only different if someone ran scripts/post-install/set-service-credentials.sh ldap-admin (or 'all') since.}"
-: "${ALICE_PW:?Set ALICE_PW to ${PROBER_UID}s current LDAP password (this is PROBER_UID's password, named ALICE_PW because PROBER_UID defaults to alice). Test-lab default for alice: ChangeMe123! (printed by scripts/install/02-openldap.sh); only different if someone ran scripts/day2/user-lifecycle.sh set-password ${PROBER_UID} since.}"
-: "${CAROL_PW:?Set CAROL_PW to ${TARGET_UID}s current LDAP password (this is TARGET_UID's password, named CAROL_PW because TARGET_UID defaults to carol). Test-lab default for carol: ChangeMe123! (printed by scripts/install/02-openldap.sh); only different if someone ran scripts/day2/user-lifecycle.sh set-password ${TARGET_UID} since.}"
+: "${GERRIT_ADMIN_PW:?Set GERRIT_ADMIN_PW to ${PROBER_UID}s current LDAP password, needed for the step 5 verification below. No bootstrap default -- get it from whichever of \"ggadmin-user add ${PROBER_UID} ...\" or \"ggadmin-user set-password ${PROBER_UID}\" last set it.}"
 
-# Fail fast and clearly if either account is simply gone (e.g.
-# final-remove-test-users.sh already ran) instead of dying confusingly
-# deep in step 5 after every other step already made real changes.
-for _uid in "$PROBER_UID" "$TARGET_UID"; do
-  ldapsearch -x -D "$ADMIN_DN" -w "$LDAP_ADMIN_PW" -H ldap://localhost \
-    -b "uid=${_uid},ou=people,${BASE_DN}" -s base "(objectClass=*)" dn >/dev/null 2>&1 \
-    || die "no LDAP entry for uid=${_uid} -- step 5's verification needs this account to actually exist and log in. If this host already ran scripts/post-install/final-remove-test-users.sh, alice/bob/carol are gone for good (by design, see that script's header) -- point PROBER_UID/TARGET_UID at two other real, currently-existing accounts instead (with ALICE_PW/CAROL_PW set to their respective passwords): sudo LDAP_ADMIN_PW='...' PROBER_UID=<uid> ALICE_PW='...' TARGET_UID=<uid> CAROL_PW='...' bash ${SCRIPT_NAME}"
-done
-unset _uid
+# Fail fast and clearly if PROBER_UID is simply gone, or its password is
+# stale, instead of dying confusingly deep in step 5 after every other
+# step already made real changes -- both confirmed live as real failure
+# modes, not hypothetical.
+ldapsearch -x -D "$ADMIN_DN" -w "$LDAP_ADMIN_PW" -H ldap://localhost \
+  -b "uid=${PROBER_UID},ou=people,${BASE_DN}" -s base "(objectClass=*)" dn >/dev/null 2>&1 \
+  || die "no LDAP entry for uid=${PROBER_UID} -- step 5's verification needs this account to actually exist and log in. Default is gerrit-bot; if it doesn't exist yet on this host, set it up first (ADMIN.md's \"Setting up the Gerrit service account\"), or point PROBER_UID at a different real, currently-existing account (with GERRIT_ADMIN_PW set to its password): sudo LDAP_ADMIN_PW='...' PROBER_UID=<uid> GERRIT_ADMIN_PW='...' bash ${SCRIPT_NAME}"
+verify_ldap_cred "GERRIT_ADMIN_PW (${PROBER_UID})" "uid=${PROBER_UID},ou=people,${BASE_DN}" "$GERRIT_ADMIN_PW" \
+  || die "GERRIT_ADMIN_PW is wrong for uid=${PROBER_UID} -- see the WARNING line above. Get the current password from whichever of \"ggadmin-user add ${PROBER_UID} ...\" or \"ggadmin-user set-password ${PROBER_UID}\" last set it, then rerun with it fixed."
 
 READER_PW=$(openssl rand -base64 24 | tr -dc 'A-Za-z0-9' | head -c 24; echo)
 
@@ -245,20 +236,21 @@ ANON_COUNT=$(ldapsearch -x -H ldap://localhost -b "ou=groups,${BASE_DN}" \
 [ "$ANON_COUNT" -eq 0 ] || die "anonymous can still read group membership -- ACL lockdown failed"
 log "confirmed: anonymous bind can no longer read group membership"
 
-# 5b. a regular user (PROBER_UID) cannot browse other users entries either
-# -- this is the actual point of the exercise, so it is not optional.
-PROBER_COUNT=$(ldapsearch -x -D "uid=${PROBER_UID},ou=people,${BASE_DN}" -w "$ALICE_PW" -H ldap://localhost \
-  -b "uid=${TARGET_UID},ou=people,${BASE_DN}" mail 2>/dev/null | grep -c '^mail:' || true)
-[ "$PROBER_COUNT" -eq 0 ] || die "${PROBER_UID} can still read another user's attributes -- ACL lockdown failed"
-log "confirmed: ${PROBER_UID} (regular user) cannot read other users entries"
+# 5b. a regular user (PROBER_UID) cannot browse other entries either --
+# this is the actual point of the exercise, so it is not optional.
+# Reads the reader account's own entry as the target: guaranteed to
+# exist (step 1, moments ago), so no second account is needed. (GERRIT_ADMIN_PW
+# was already confirmed correct for PROBER_UID above, so a 0 count here
+# means the ACL denied it, not that the bind itself failed.)
+PROBER_COUNT=$(ldapsearch -x -D "uid=${PROBER_UID},ou=people,${BASE_DN}" -w "$GERRIT_ADMIN_PW" -H ldap://localhost \
+  -b "$READER_DN" -s base "(objectClass=*)" description 2>/dev/null | grep -c '^description:' || true)
+[ "$PROBER_COUNT" -eq 0 ] || die "${PROBER_UID} can still read another entry's attributes -- ACL lockdown failed"
+log "confirmed: ${PROBER_UID} (regular user) cannot read other entries"
 
-# 5c. the reader account itself cannot write anywhere. Targets TARGET_UID,
-# not PROBER_UID -- both are confirmed to exist up front, but it doesn't
-# matter which as long as it's a real entry: a write attempt against a
-# nonexistent DN would fail for the wrong reason ("no such object") and
-# silently pass this check even if the reader account has write access.
+# 5c. the reader account itself cannot write anywhere -- not even to its
+# own entry ("by self read" in the ACL grants read, not write).
 if ldapmodify -x -D "$READER_DN" -w "$READER_PW" -H ldap://localhost 2>/dev/null <<EOF
-dn: uid=${TARGET_UID},ou=people,${BASE_DN}
+dn: ${READER_DN}
 changetype: modify
 replace: description
 description: reader account should not be able to do this
@@ -269,11 +261,11 @@ fi
 log "confirmed: ldap-reader cannot write to the directory (write attempt correctly rejected)"
 
 # 5d. Gerrit and Gitea logins still work through the new reader account
-curl -fsS -u "${TARGET_UID}:${CAROL_PW}" \
+curl -fsS -u "${PROBER_UID}:${GERRIT_ADMIN_PW}" \
   -o /dev/null "${GERRIT_URL}/a/accounts/self" \
-  || die "${TARGET_UID} cannot log into Gerrit through the new reader account"
-curl -fsS -u "${TARGET_UID}:${CAROL_PW}" -o /dev/null "${GITEA_URL}/api/v1/user" \
-  || die "${TARGET_UID} cannot log into Gitea through the new reader account"
-log "confirmed: ${TARGET_UID} can still log into both Gerrit and Gitea via the reader account"
+  || die "${PROBER_UID} cannot log into Gerrit through the new reader account"
+curl -fsS -u "${PROBER_UID}:${GERRIT_ADMIN_PW}" -o /dev/null "${GITEA_URL}/api/v1/user" \
+  || die "${PROBER_UID} cannot log into Gitea through the new reader account"
+log "confirmed: ${PROBER_UID} can still log into both Gerrit and Gitea via the reader account"
 
 log "OK: least-privilege LDAP bind account in place, ACL lockdown verified, logins still work."

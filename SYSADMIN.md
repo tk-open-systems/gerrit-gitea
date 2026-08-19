@@ -215,18 +215,17 @@ rather than continuing one sequence:
   can read the entire `ou=people`/`ou=groups` tree. Also here:
   `final-remove-test-users.sh`, which removes the lab test users
   `alice`/`bob`/`carol` once they're no longer needed — genuinely
-  optional (unlike the other two), and the name says what the other two
-  scripts' filenames don't need to: run it **last**, after everything
-  else in `post-install/` and `install/` that you're going to run, since
-  `12`-`13` above and `ldap-least-privilege.sh` all need `alice`/`carol`
-  still alive for their own verification (`ldap-least-privilege.sh` can
-  be pointed at two other real, currently-existing accounts instead via
-  `PROBER_UID`/`TARGET_UID`, for the rare case where it needs rerunning
-  — e.g. re-creating `ou=services` — on a host that's already past
-  `final-remove-test-users.sh`; see that script's header). None of the three are
-  numbered relative to each other — the ordering that matters here is
-  "these two, then this one," which the name conveys on its own, not
-  "run 1, 2, 3 in sequence" — see "Post-install" below for the full
+  optional (unlike the other two), and the name says what it needs to:
+  run it **last**, after everything else in `post-install/` and
+  `install/` that you're going to run, since `12`-`13` above still need
+  `alice`/`carol` alive for their own verification.
+  `ldap-least-privilege.sh` used to have this same constraint but no
+  longer does — it verifies against `gerrit-bot` instead (see "Which
+  ones to run, and in what order" below) — so it's fine to run before
+  or after `final-remove-test-users.sh`, in either order. None of the
+  three are numbered relative to each other — the ordering that matters
+  here is "`12`/`13`, then this one," which the name conveys on its own,
+  not "run 1, 2, 3 in sequence" — see "Post-install" below for the full
   reasoning and a copy-pasteable sequence.
 - **`scripts/hardening/`** — genuinely optional, deferrable extras:
   currently just `nginx-tls.sh` (self-signed HTTPS), which needs a real
@@ -416,39 +415,58 @@ a disposable lab, effectively required for anything real.
 ### Which ones to run, and in what order
 
 `set-service-credentials.sh` and `ldap-least-privilege.sh` are
-independent of each other — no ordering constraint between them.
-`final-remove-test-users.sh` depends on both of the others having
-already run (if you're running them at all) — its name says so
-directly, which is why it's not just `remove-test-users.sh`: nothing
-else in `post-install/` is numbered either, but this one script's
-position genuinely isn't interchangeable with the other two, and a
-name is a lighter way to say that than a number would be for a
-two-script exception in an otherwise unordered directory.
+independent of each other — no ordering constraint between them, and
+(since a redesign — see below) neither depends on the lab test users
+`alice`/`bob`/`carol` still existing either. `final-remove-test-users.sh`
+depends on `scripts/install/12`/`13` having already run (if you're
+running them at all) — its name says so directly, which is why it's not
+just `remove-test-users.sh`: nothing else in `post-install/` is numbered
+either, but this one script's position genuinely isn't interchangeable,
+and a name is a lighter way to say that than a number would be for a
+one-script exception in an otherwise unordered directory.
 
-- **`ldap-least-privilege.sh` before `scripts/post-install/final-remove-test-users.sh`,
-  not after** — `ldap-least-privilege.sh`'s own verification step logs
-  in as `alice` and `carol` to *prove* the new ACL lockdown actually
-  blocks/allows the right things; if the test users are already
-  deleted, it has nothing to verify with and fails. Do the LDAP
-  lockdown while the test users still exist; removing them is
-  `final-remove-test-users.sh`'s job, done last. (`scripts/install/12-gerrit-postgresql.sh`
-  and `13-gitea-postgresql.sh` have this exact same constraint, for the
-  same reason — see "Run the scripts as root" above.)
-- **`scripts/install/14-gerrit-service-account.sh` before
-  `final-remove-test-users.sh`, harder than the constraint above** —
-  not just "verification fails without it," `final-remove-test-users.sh`
-  errors outright: carol and `gerrit-bot` are the only two members of
-  the LDAP `admins` group, so removing carol while `gerrit-bot` doesn't
+- **`scripts/install/12-gerrit-postgresql.sh` and `13-gitea-postgresql.sh`
+  before `scripts/post-install/final-remove-test-users.sh`, not after**
+  — both scripts' own verification step logs in as `alice`/`carol` to
+  *prove* the PostgreSQL migration didn't break anything; if the test
+  users are already deleted, they have nothing to verify with and fail.
+  Do the migration while the test users still exist; removing them is
+  `final-remove-test-users.sh`'s job, done last.
+- **`scripts/install/14-gerrit-service-account.sh` before both
+  `final-remove-test-users.sh` *and* `ldap-least-privilege.sh`** — for
+  `final-remove-test-users.sh` this is a hard failure, not just a failed
+  verification: `carol` and `gerrit-bot` are the only two members of the
+  LDAP `admins` group, so removing `carol` while `gerrit-bot` doesn't
   exist yet would empty a `groupOfNames`, which LDAP refuses.
+  `ldap-least-privilege.sh` needs `gerrit-bot` for a different reason:
+  its own verification step (below) authenticates as `gerrit-bot`
+  instead of a lab test user, specifically so it has nothing to do with
+  `final-remove-test-users.sh`'s ordering — but that means it now needs
+  `gerrit-bot` to exist by the time *it* runs, instead.
 
-`set-service-credentials.sh` has no ordering constraint against
-`ldap-least-privilege.sh` or `final-remove-test-users.sh` — run it
-whenever the credential you want to rotate exists (or use `all`).
+`ldap-least-privilege.sh` used to depend on `alice`/`carol` the same
+way `12`/`13` still do — confirmed live to actually break that way, not
+just in theory: on a host that had already run
+`final-remove-test-users.sh`, rerunning `ldap-least-privilege.sh` (to
+recreate `ou=services`, which had somehow gone missing) died at
+"`carol` cannot log into Gerrit" purely because `carol` no longer
+existed, even though the actual lockdown it was trying to verify was
+already correct. Redesigned to verify against `gerrit-bot` instead
+(`PROBER_UID`, default `gerrit-bot`) and the reader account's own LDAP
+entry — both things this project already treats as permanent,
+always-present prerequisites — so it no longer cares what order it runs
+relative to `final-remove-test-users.sh`, or whether that script has
+run at all. See its header comment for the (now rare) case where you'd
+still need to override `PROBER_UID`/`GERRIT_ADMIN_PW`.
+
+`set-service-credentials.sh` has no ordering constraint against either
+of the other two — run it whenever the credential you want to rotate
+exists (or use `all`).
 
 A reasonable sequence, doing all three:
 
 ```
-sudo LDAP_ADMIN_PW='...' ALICE_PW='...' CAROL_PW='...' \
+sudo LDAP_ADMIN_PW='...' GERRIT_ADMIN_PW='...' \
   bash scripts/post-install/ldap-least-privilege.sh
 sudo LDAP_ADMIN_PW='...' bash scripts/post-install/set-service-credentials.sh all
 # ^ prints a NEW ldap-admin password -- every '...' placeholder below
@@ -459,9 +477,10 @@ sudo LDAP_ADMIN_PW='...' GERRIT_ADMIN_PW='...' GITEA_ADMIN_PW='...' \
 
 (This assumes `scripts/install/11-14` -- PostgreSQL and the `gerrit-bot`
 service account -- already ran as part of `install/`, since `12`-`14`
-each share some form of the "before `final-remove-test-users.sh`"
-constraint above -- `14` a hard failure, `12`/`13` a failed
-verification.)
+each share some form of a "before `final-remove-test-users.sh`"
+constraint above -- `14` a hard failure for that script, `12`/`13` a
+failed verification. `14` is also now a prerequisite for
+`ldap-least-privilege.sh` itself, per its own default `PROBER_UID`.)
 
 Each script's own header comment has the exact credentials it needs and
 where to get them; the status list below explains what each one does

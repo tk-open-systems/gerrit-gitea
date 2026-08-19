@@ -399,6 +399,22 @@ These cost real debugging time; they're recorded here so the next person
     comma-separated option list (parse error right at the comma) despite
     that being the documented `.load`-file syntax; each option needs its
     own `--with`.
+16. **`nginx`'s `$host` variable never includes a port, which broke Gitea
+    project creation with a CSRF rejection** (`cross-origin request
+    detected ... Origin does not match Host`) purely because Gerrit/Gitea
+    both run on non-default ports (`:8090`/`:8091` plain, `:8453`/`:8454`
+    TLS) — `scripts/install/08-nginx.sh`'s `proxy_set_header Host
+    $host;` forwarded Gitea a Host header of just `host`, while the
+    browser's `Origin` for a non-default-port URL always includes the
+    port (`http://host:8091`); Gitea's CSRF check compares the two and
+    rejected every state-changing request. Looked exactly like a
+    hostname mismatch at first — `DOMAIN`/`ROOT_URL` in `app.ini`,
+    `config.sh`'s `HOST_FQDN`, `hostname -f`, and nginx's `server_name`
+    all agreed, which is what actually narrowed it down to the proxy
+    layer rather than DNS/config. Fix: `proxy_set_header Host
+    $http_host;` instead, which preserves the port the client actually
+    sent. Wouldn't have surfaced at all on the standard `:80`/`:443`,
+    where browsers omit the port from `Origin` too.
 
 ## Post-install
 

@@ -219,7 +219,11 @@ rather than continuing one sequence:
   scripts' filenames don't need to: run it **last**, after everything
   else in `post-install/` and `install/` that you're going to run, since
   `12`-`13` above and `ldap-least-privilege.sh` all need `alice`/`carol`
-  still alive for their own verification. None of the three are
+  still alive for their own verification (`ldap-least-privilege.sh` can
+  be pointed at two other real, currently-existing accounts instead via
+  `PROBER_UID`/`TARGET_UID`, for the rare case where it needs rerunning
+  — e.g. re-creating `ou=services` — on a host that's already past
+  `final-remove-test-users.sh`; see that script's header). None of the three are
   numbered relative to each other — the ordering that matters here is
   "these two, then this one," which the name conveys on its own, not
   "run 1, 2, 3 in sequence" — see "Post-install" below for the full

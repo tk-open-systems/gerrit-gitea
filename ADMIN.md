@@ -446,7 +446,12 @@ Run this LAST: `scripts/install/12-gerrit-postgresql.sh`,
 `scripts/post-install/ldap-least-privilege.sh` all authenticate as
 `alice`/`carol` as part of their own verification, so all of them need
 to run *before* this script, not after — see SYSADMIN.md's "Which ones
-to run, and in what order" for why.
+to run, and in what order" for why. If `ldap-least-privilege.sh` does
+need rerunning on a host that's already past this point (confirmed
+live: needed to re-create `ou=services` after it had somehow gone
+missing), point it at two other real, currently-existing accounts via
+`PROBER_UID`/`TARGET_UID` instead of `alice`/`carol` — see that
+script's header comment.
 
 The rest of this section is what that script actually runs, and why —
 read on if you want the manual version or the reasoning, otherwise the

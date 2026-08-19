@@ -74,11 +74,26 @@ ORG="${GITEA_ORG:-engineering}"
 ADMIN_DN="cn=admin,${BASE_DN}"
 READER_DN="cn=ldap-reader,ou=services,${BASE_DN}"
 
+# reader_exists: SASL EXTERNAL over ldapi:/// (root's local-socket auth,
+# same mechanism set_ldap_admin uses below), not a plain anonymous bind --
+# scripts/post-install/ldap-least-privilege.sh's whole point is to deny
+# anonymous read on everything except the reader DN's own entry (its ACL
+# rule {2}: "by * none"), so an anonymous ldapsearch here would silently
+# and wrongly report "does not exist" on any host where least-privilege
+# lockdown has already run, in turn making set_ldap_admin() below wrongly
+# conclude Gerrit/Gitea still bind as cn=admin and overwrite their stored
+# ldap.password with cn=admin's new one instead of leaving ldap-reader's
+# alone. Confirmed live: this was corrupting Gerrit's LDAP search bind on
+# a lab that had already run ldap-least-privilege.sh.
+reader_exists() {
+  ldapsearch -Y EXTERNAL -H ldapi:/// -b "$READER_DN" -s base "(objectClass=*)" dn >/dev/null 2>&1
+}
+
 # --- no args, or `all`: expand to every special account that currently exists ---
 if [ "${1:-all}" = "all" ]; then
   [ $# -le 1 ] || die "'all' rotates every special account by itself -- don't combine it with individual account names"
   set -- ldap-admin gitea-admin gerrit-replication
-  if ldapsearch -x -H ldap://localhost -b "$READER_DN" -s base "(objectClass=*)" dn >/dev/null 2>&1; then
+  if reader_exists; then
     set -- "$@" ldap-reader
   else
     log "cn=ldap-reader does not exist yet (scripts/post-install/ldap-least-privilege.sh hasn't run) -- 'all' only covers what currently exists, skipping it"
@@ -94,10 +109,6 @@ for acct in "$@"; do
 done
 
 gen_pw() { openssl rand -base64 24 | tr -dc 'A-Za-z0-9' | head -c 24; echo; }
-
-reader_exists() {
-  ldapsearch -x -H ldap://localhost -b "$READER_DN" -s base "(objectClass=*)" dn >/dev/null 2>&1
-}
 
 gitea_ldap_source_id() {
   sudo -u gitea "$GITEA" admin auth list --config "$APP_INI" 2>/dev/null \

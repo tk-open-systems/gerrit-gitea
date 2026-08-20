@@ -607,11 +607,17 @@ those teams can see it until/unless you change that.
 
 **Finding the clone/push URL later, without rerunning the script:** every
 project's page in the Gerrit web UI (Browse → Repos → the project) has a
-"Clone" panel with the ready-to-copy HTTP and SSH commands —
-`scripts/install/04-gerrit.sh` sets `download.scheme = http` + `ssh` in
-`gerrit.config` specifically so this panel is populated (it renders empty
-without it, which is *not* a sign the project or its URL don't exist).
-No separate URL list needs to be kept anywhere (e.g. a Gitea wiki page):
+"Clone" panel with the ready-to-copy HTTP and SSH commands. Two things
+have to both be true for it to show anything, and `scripts/install/04-gerrit.sh`
+handles both: the **download-commands plugin** must actually be installed
+(`--install-plugin download-commands` on the `gerrit init` call — it's a
+*core* plugin bundled in `gerrit.war`, same as `replication`, but bundled
+doesn't mean active), and `download.scheme = http` + `ssh` must be set in
+`gerrit.config`, which that plugin reads. Either one missing leaves the
+panel empty with **no warning anywhere** — confirmed live: `gerrit.config`
+had the right value, Gerrit had been restarted, and it still silently did
+nothing until the plugin itself was installed. No separate URL list needs
+to be kept anywhere (e.g. a Gitea wiki page):
 the URL is a fixed template (`http(s)://<host>:<gerrit-http-port>/a/<project>`,
 `ssh://<host>:29418/<project>`) — only the project name varies, and
 Gerrit's own project list (same Browse → Repos page, or `GET /a/projects/`)

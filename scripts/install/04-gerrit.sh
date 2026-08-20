@@ -11,9 +11,12 @@
 #   first once this phase is verified.
 # - httpd on 127.0.0.1:8080 (proxy-http, nginx fronts it on :8090),
 #   sshd on :29418. download.scheme=http+ssh so each repo's page in the
-#   Gerrit web UI (Browse > Repos > <project>) shows its clone/push URL.
-# - replication plugin is installed (bundled in the war) but not yet
-#   configured -- that's phase 6, once the Gitea target repo exists.
+#   Gerrit web UI (Browse > Repos > <project>) shows its clone/push URL
+#   -- needs the download-commands plugin installed (step 2) to do
+#   anything at all, config alone is not enough.
+# - replication and download-commands plugins are installed (bundled in
+#   the war) but replication isn't configured yet -- that's phase 6,
+#   once the Gitea target repo exists.
 #
 # Safe to rerun: `gerrit init --batch` is Gerrit's own supported
 # upgrade/repair path and does not clobber existing data; the war is
@@ -64,8 +67,17 @@ else
 fi
 
 # --- 2. init/upgrade the site (Gerrit's own supported rerun path) ---
+# download-commands is what actually implements the "Clone" panel on each
+# repo's page (reads download.scheme below) -- it's a *core* plugin
+# bundled inside gerrit.war, same as replication and delete-project
+# (scripts/install/10-delete-project-plugin.sh), but bundled does not mean
+# active: it still has to be explicitly installed like this, or the
+# download.scheme config two blocks down is silently meaningless -- no
+# warning anywhere, download.schemes just stays empty forever. Confirmed
+# live: writing download.scheme and restarting Gerrit repeatedly did
+# nothing until this flag was added.
 sudo -u gerrit java -jar "$WAR" init -d "$SITE" \
-  --batch --no-auto-start --install-plugin replication
+  --batch --no-auto-start --install-plugin replication --install-plugin download-commands
 
 # --- 3. gerrit.config ---
 gcfg() { sudo -u gerrit git config -f "$SITE/etc/gerrit.config" "$@"; }
@@ -87,7 +99,9 @@ gcfg sshd.listenAddress "*:29418"
 # download.scheme drives the "Clone" command panel on each repo's page in
 # the Gerrit web UI (Browse > Repos > <project>) -- without it the panel
 # renders empty, leaving no in-UI way to find a project's clone/push URL.
-# Multi-valued key, unlike everything else set via gcfg above: unset-all
+# Read by the download-commands plugin installed in step 2 above; it does
+# nothing on its own without that plugin active. Multi-valued key, unlike
+# everything else set via gcfg above: unset-all
 # then re-add on every run instead of a plain `gcfg` call, so reruns stay
 # idempotent (a second `--add` would otherwise duplicate the entry) while
 # still replacing a stale/partial value from before this existed.

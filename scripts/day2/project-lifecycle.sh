@@ -57,6 +57,14 @@ GERRIT_ADMIN_USER="${GERRIT_ADMIN_USER:-gerrit-bot}"
 GITEA_ADMIN_USER="${GITEA_ADMIN_USER:-gitea-admin}"
 ORG="${GITEA_ORG:-engineering}"
 REPLICATION_TEAM="${REPLICATION_TEAM:-Replication}"
+# Externally-reachable host:port for the URLs cmd_add prints -- deliberately
+# NOT $GERRIT_URL above, which is the loopback address this script itself
+# talks to Gerrit's API on. A developer's own machine can't reach
+# 127.0.0.1:8080 on this host; nginx is what fronts Gerrit for everyone
+# else (scripts/install/08-nginx.sh), and :29418 is Gerrit's sshd, which
+# nginx doesn't proxy at all.
+GERRIT_EXTERNAL_HTTP_PORT="${GERRIT_EXTERNAL_HTTP_PORT:-8090}"
+GERRIT_SSH_PORT="${GERRIT_SSH_PORT:-29418}"
 
 usage() {
   cat >&2 <<EOF
@@ -166,6 +174,11 @@ cmd_add() {
       "${GITEA_URL}/api/v1/repos/${ORG}/${project}/branch_protections" >/dev/null
     log "added branch protection rule '**' restricting push/force-push to '${REPLICATION_TEAM}' on '${ORG}/${project}'"
   fi
+
+  log "clone/push URL for '${project}' (replace <uid> with your own LDAP username; same URL also now shows on the project's own page in the Gerrit web UI, Browse > Repos > ${project}):"
+  log "  HTTP: http://<uid>@${HOST_FQDN}:${GERRIT_EXTERNAL_HTTP_PORT}/a/${project}"
+  log "  SSH:  ssh://<uid>@${HOST_FQDN}:${GERRIT_SSH_PORT}/${project}"
+  log "  push for review with: git push <remote> HEAD:refs/for/main -- never straight to 'main' (see ADMIN.md 'Add a project' / WORKFLOW.md section 2)"
 }
 
 cmd_describe() {

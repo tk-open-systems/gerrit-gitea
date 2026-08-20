@@ -10,7 +10,8 @@
 #   Administrators, so log in as carol (our LDAP admins-group user)
 #   first once this phase is verified.
 # - httpd on 127.0.0.1:8080 (proxy-http, nginx fronts it on :8090),
-#   sshd on :29418.
+#   sshd on :29418. download.scheme=http+ssh so each repo's page in the
+#   Gerrit web UI (Browse > Repos > <project>) shows its clone/push URL.
 # - replication plugin is installed (bundled in the war) but not yet
 #   configured -- that's phase 6, once the Gitea target repo exists.
 #
@@ -77,7 +78,19 @@ gcfg ldap.groupPattern '(&(objectClass=groupOfNames)(cn=${groupname}))'
 gcfg ldap.groupMemberPattern '(member=${dn})'
 gcfg httpd.listenUrl "proxy-http://127.0.0.1:8080/"
 gcfg sshd.listenAddress "*:29418"
-log "wrote gerrit.config (auth.type=LDAP, canonicalWebUrl=http://${HOST_FQDN}:${EXTERNAL_PORT}/)"
+
+# download.scheme drives the "Clone" command panel on each repo's page in
+# the Gerrit web UI (Browse > Repos > <project>) -- without it the panel
+# renders empty, leaving no in-UI way to find a project's clone/push URL.
+# Multi-valued key, unlike everything else set via gcfg above: unset-all
+# then re-add on every run instead of a plain `gcfg` call, so reruns stay
+# idempotent (a second `--add` would otherwise duplicate the entry) while
+# still replacing a stale/partial value from before this existed.
+sudo -u gerrit git config -f "$SITE/etc/gerrit.config" --unset-all download.scheme 2>/dev/null || true
+sudo -u gerrit git config -f "$SITE/etc/gerrit.config" --add download.scheme http
+sudo -u gerrit git config -f "$SITE/etc/gerrit.config" --add download.scheme ssh
+
+log "wrote gerrit.config (auth.type=LDAP, canonicalWebUrl=http://${HOST_FQDN}:${EXTERNAL_PORT}/, download.scheme=http+ssh)"
 
 # --- 4. secure.config: LDAP bind password ---
 sudo -u gerrit git config -f "$SITE/etc/secure.config" ldap.password "$LDAP_BIND_PW"

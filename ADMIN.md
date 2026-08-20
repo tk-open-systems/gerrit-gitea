@@ -584,10 +584,11 @@ doesn't affect it.)
 
 Script: `ggadmin-project add my-new-project "description"`
 — creates the Gerrit project, waits for the Gitea mirror to replicate,
-and applies both required follow-up steps below. Safe to rerun to
-apply the follow-ups to a project created before this script existed.
-Manually: create it in Gerrit (the source of truth) — Gitea's copy
-takes care of itself:
+and applies both required follow-up steps below, then prints the
+project's HTTP and SSH clone/push URLs. Safe to rerun to apply the
+follow-ups (and reprint the URLs) for a project created before this
+script existed. Manually: create it in Gerrit (the source of truth) —
+Gitea's copy takes care of itself:
 
 ```
 curl -u carol:ChangeMe123! -X PUT -H 'Content-Type: application/json' \
@@ -603,6 +604,18 @@ repos); the `Developers`/`Owners`/`Replication` teams already apply to it
 automatically (they're org-wide via `includes_all_repositories`, set up in
 `scripts/install/06-gitea-ldap.sh`/`scripts/install/07-replication.sh`), but nobody outside
 those teams can see it until/unless you change that.
+
+**Finding the clone/push URL later, without rerunning the script:** every
+project's page in the Gerrit web UI (Browse → Repos → the project) has a
+"Clone" panel with the ready-to-copy HTTP and SSH commands —
+`scripts/install/04-gerrit.sh` sets `download.scheme = http` + `ssh` in
+`gerrit.config` specifically so this panel is populated (it renders empty
+without it, which is *not* a sign the project or its URL don't exist).
+No separate URL list needs to be kept anywhere (e.g. a Gitea wiki page):
+the URL is a fixed template (`http(s)://<host>:<gerrit-http-port>/a/<project>`,
+`ssh://<host>:29418/<project>`) — only the project name varies, and
+Gerrit's own project list (same Browse → Repos page, or `GET /a/projects/`)
+is already the authoritative, always-current list of those names.
 
 **One required follow-up step**, until this is automated: push-to-create
 leaves the new repo's Pull Requests unit *enabled*, which WORKFLOW.md

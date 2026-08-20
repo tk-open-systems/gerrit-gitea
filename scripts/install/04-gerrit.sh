@@ -19,7 +19,13 @@
 # upgrade/repair path and does not clobber existing data; the war is
 # only re-downloaded if the installed copy's version/checksum differs;
 # config edits go through `git config -f`, which replaces keys in
-# place instead of appending duplicates.
+# place instead of appending duplicates. One deliberate exception: the
+# LDAP bind identity (gerrit.config's ldap.username + secure.config's
+# ldap.password) is only (re)written while still in its original
+# bootstrap state -- see the comment at that block -- so this rerun
+# safety does NOT extend to blindly restoring a bind identity that
+# scripts/post-install/ldap-least-privilege.sh has since repointed
+# elsewhere.
 set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../lib.sh"
 require_root
@@ -67,7 +73,6 @@ gcfg() { sudo -u gerrit git config -f "$SITE/etc/gerrit.config" "$@"; }
 gcfg gerrit.canonicalWebUrl "http://${HOST_FQDN}:${EXTERNAL_PORT}/"
 gcfg auth.type LDAP
 gcfg ldap.server "ldap://localhost"
-gcfg ldap.username "$LDAP_BIND_DN"
 gcfg ldap.accountBase "ou=people,${BASE_DN}"
 gcfg ldap.accountPattern '(&(objectClass=inetOrgPerson)(uid=${username}))'
 gcfg ldap.accountFullName cn
@@ -92,10 +97,29 @@ sudo -u gerrit git config -f "$SITE/etc/gerrit.config" --add download.scheme ssh
 
 log "wrote gerrit.config (auth.type=LDAP, canonicalWebUrl=http://${HOST_FQDN}:${EXTERNAL_PORT}/, download.scheme=http+ssh)"
 
-# --- 4. secure.config: LDAP bind password ---
-sudo -u gerrit git config -f "$SITE/etc/secure.config" ldap.password "$LDAP_BIND_PW"
+# --- 4. LDAP bind identity (gerrit.config's ldap.username + secure.config's
+# ldap.password) -- guarded, unlike every other gcfg call above. This pair
+# is a deliberate exception to "config edits go through git config -f,
+# which replaces keys in place" (see top of file): scripts/post-install/
+# ldap-least-privilege.sh repoints both of these, together, from this
+# script's cn=admin bootstrap bind to a dedicated cn=ldap-reader account
+# with its own generated password -- and unconditionally rewriting them
+# here on every rerun previously stomped that repointing straight back to
+# the (by then stale) bootstrap credentials, breaking Gerrit LDAP auth
+# entirely while leaving Gitea (whose config this script never touches)
+# unaffected. Confirmed live, not hypothetical. Only (re)write the
+# bootstrap identity if it's still in its original bootstrap state --
+# i.e. this is the first-ever run, or ldap-least-privilege.sh was never
+# applied on this host -- so a later repointing is left alone here.
+CURRENT_LDAP_USERNAME=$(sudo -u gerrit git config -f "$SITE/etc/gerrit.config" --get ldap.username 2>/dev/null || true)
+if [ -z "$CURRENT_LDAP_USERNAME" ] || [ "$CURRENT_LDAP_USERNAME" = "$LDAP_BIND_DN" ]; then
+  gcfg ldap.username "$LDAP_BIND_DN"
+  sudo -u gerrit git config -f "$SITE/etc/secure.config" ldap.password "$LDAP_BIND_PW"
+  log "wrote LDAP bind identity (${LDAP_BIND_DN}) into gerrit.config/secure.config"
+else
+  log "ldap.username is already '${CURRENT_LDAP_USERNAME}' (not the bootstrap ${LDAP_BIND_DN}) -- leaving it and secure.config's ldap.password untouched. Expected if scripts/post-install/ldap-least-privilege.sh has already repointed this host to a dedicated bind account; rerun that script instead if you need to rotate its password. To deliberately reset back to the bootstrap cn=admin bind, edit gerrit.config's ldap.username by hand first, then rerun this script."
+fi
 chmod 600 "$SITE/etc/secure.config"
-log "wrote LDAP bind password into secure.config (mode 600)"
 
 # --- 5. systemd unit ---
 cat > /etc/systemd/system/gerrit.service <<EOF

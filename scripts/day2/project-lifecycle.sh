@@ -89,6 +89,19 @@ esac
 # has spaces or quotes in it.
 ORIG_ARGS_Q=$(printf '%q ' "$@")
 
+# GITEA_ORG is NOT a real multi-org redirect, despite looking like one --
+# Gerrit's replication plugin mirrors every project into the single
+# Gitea org "engineering" unconditionally (hardcoded in
+# scripts/install/07-replication.sh's remote.gitea.url, which never
+# reads this variable). Setting GITEA_ORG to anything else used to fail
+# silently-ish 30s into `add` with a confusing "Gitea repo never
+# appeared" error, after the Gerrit project and the engineering/ mirror
+# had already been created -- fail immediately instead, before touching
+# anything. See SYSADMIN.md gotcha 17 / WORKFLOW.md section 2.
+if [ -n "${GITEA_ORG:-}" ] && [ "$GITEA_ORG" != "engineering" ]; then
+  die "GITEA_ORG='${GITEA_ORG}' was given, but this only changes which org this script itself talks to -- it does NOT redirect where Gerrit's replication plugin mirrors the project, which is always 'engineering' (hardcoded in scripts/install/07-replication.sh). There is no supported way to replicate into a different Gitea org. Unset GITEA_ORG (or set it to 'engineering') and rerun: ${SCRIPT_NAME} ${ORIG_ARGS_Q}"
+fi
+
 if [ -z "${GERRIT_ADMIN_PW:-}" ] || [ -z "${GITEA_ADMIN_PW:-}" ]; then
   die "GERRIT_ADMIN_PW and GITEA_ADMIN_PW are not set (current passwords for ${GERRIT_ADMIN_USER} and ${GITEA_ADMIN_USER}).
   Get them from: GERRIT_ADMIN_PW was printed once by whichever of "ggadmin-user add gerrit-bot ..." or "ggadmin-user set-password gerrit-bot" set it last (no bootstrap default -- it never was ChangeMe123!); GITEA_ADMIN_PW was printed by "scripts/post-install/set-service-credentials.sh gitea-admin" the last time that ran, or is still the install default ChangeMe123! if it never has.

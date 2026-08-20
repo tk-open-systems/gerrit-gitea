@@ -54,6 +54,27 @@ split between the two tools, but with very different scope in each.
 
 ## 2. Repo mirroring (Gerrit → Gitea, merge-only)
 
+**Single fixed Gitea org, hardcoded, in both directions — no multi-org
+support exists.** Every Gerrit-created project replicates into the one
+Gitea org named `engineering` (`scripts/install/07-replication.sh`'s
+`remote.gitea.url`, and the `Developers`/`Owners`/`Replication` team
+setup in `scripts/install/06-gitea-ldap.sh`, both hardcode it — there is
+no config knob that redirects this). And separately, a repo created any
+other way — including a repo created directly in Gitea's `engineering`
+org itself, not just some other org — **never appears in Gerrit at all**,
+regardless of org: mirroring only ever runs Gerrit → Gitea, one-way (see
+below); nothing pulls or imports the other direction. So any Gitea org
+other than `engineering` (nothing stops someone creating one — Gitea's
+org self-service creation is not disabled anywhere in this setup) is
+completely outside this system in both directions at once: nothing
+placed there can ever reach Gerrit, Gerrit can never be made to replicate
+into it, and it gets none of `engineering`'s governance either (its
+Pull-Requests-unit-disable and branch-protection safeguards are applied
+per-project by `ggadmin-project`, which itself can only ever target
+`engineering` — see ADMIN.md's "Add a project"). Treat it as a fully
+unmanaged, ungoverned space if it appears — not a smaller/alternate
+version of the real workflow. See SYSADMIN.md gotcha 17.
+
 Use Gerrit's **replication plugin**, not Gitea's pull-mirror:
 
 - It's push-based and event-driven (fires on ref-update), vs. Gitea's

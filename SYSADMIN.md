@@ -415,6 +415,26 @@ These cost real debugging time; they're recorded here so the next person
     $http_host;` instead, which preserves the port the client actually
     sent. Wouldn't have surfaced at all on the standard `:80`/`:443`,
     where browsers omit the port from `Origin` too.
+17. **There is no multi-org support, despite `ggadmin-project` accepting
+    a `GITEA_ORG` variable.** Every Gerrit-created project replicates into
+    the single Gitea org `engineering`, unconditionally —
+    `scripts/install/07-replication.sh` bakes `ORG="engineering"` straight
+    into `remote.gitea.url` in `replication.config`, and doesn't read
+    `GITEA_ORG` at all. `project-lifecycle.sh` reads `GITEA_ORG` for its
+    *own* two follow-up API calls (disable Pull Requests, add branch
+    protection) and for the URLs it prints, but that's it — those calls
+    just silently target an org the mirror was never actually pushed to.
+    Confirmed live: `GITEA_ORG=other-org ggadmin-project add foo` creates
+    the Gerrit project and the `engineering/foo` mirror exactly as normal,
+    then dies after 30s insisting `other-org/foo` never appeared, because
+    it never will. And separately, in the other direction: this has
+    nothing to do with replication being one-way regardless of org — a
+    repo created directly in Gitea, in `engineering` or any other org,
+    never reaches Gerrit either way (WORKFLOW.md section 2). Nothing
+    disables Gitea's self-service org creation, so anyone can create a
+    second org; it just won't be connected to Gerrit in either direction,
+    and gets none of `engineering`'s LDAP-team/branch-protection setup
+    (`scripts/install/06-gitea-ldap.sh` hardcodes `ORG="engineering"` too).
 
 ## Post-install
 

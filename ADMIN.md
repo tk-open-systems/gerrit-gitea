@@ -549,6 +549,19 @@ doesn't affect it.)
 
 ## 2. Project lifecycle
 
+**No multi-org support: every project lands in the single Gitea org
+`engineering`, always.** `ggadmin-project`/`project-lifecycle.sh` reads a
+`GITEA_ORG` environment variable, but setting it to anything else does
+**not** redirect where the project goes — Gerrit's replication plugin
+mirrors into `engineering` regardless (hardcoded in
+`scripts/install/07-replication.sh`), so `GITEA_ORG=other-org ggadmin-project
+add foo` creates the Gerrit project, replicates it into `engineering/foo`
+anyway, and then dies after 30s claiming `other-org/foo` never appeared —
+confusing, since the repo *did* get created, just not where asked. See
+WORKFLOW.md section 2 and SYSADMIN.md gotcha 17 for the full picture
+(this applies in both directions: a repo created in any org other than
+`engineering`, including directly in Gitea, never reaches Gerrit either).
+
 ### Quick checklist: setting up a new project
 
 1. `ggadmin-project add <name> ["description"]` — the only required step.

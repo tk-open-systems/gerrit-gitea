@@ -6,7 +6,7 @@
 # replacing -- the existing plain-HTTP :8090/:8091 from scripts/install/08.
 # Purely additive on purpose: Gerrit's canonicalWebUrl, the replication
 # URL, and every script/doc in this project reference the http:// URLs,
-# and changing those is real production work (see SYSADMIN.md's real-
+# and changing those is real production work (see INSTALL.md's real-
 # TLS guidance) that needs a real CA-signed cert to be worth doing, not
 # a self-signed one a browser will always warn about. This script exists
 # to demonstrate TLS termination actually works end to end, not to

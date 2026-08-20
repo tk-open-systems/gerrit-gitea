@@ -1,6 +1,6 @@
 # Gerrit + Gitea: Admin Operations Guide
 
-This sits between [SYSADMIN.md](SYSADMIN.md) (install the infrastructure)
+This sits between [INSTALL.md](INSTALL.md) (install the infrastructure)
 and [WORKFLOW.md](WORKFLOW.md) (use it day to day as a developer): it's the
 "how do I add/change/remove a user or a project" reference for whoever
 administers this setup. Every procedure below was run against the live test
@@ -170,7 +170,7 @@ the two:**
 Not one of the three credentials above — it's never passed as an
 argument to a `ggadmin-*` command — but it's referenced often enough
 elsewhere (`ldap-least-privilege.sh`, `set-service-credentials.sh`,
-the Status checklists in SYSADMIN.md) without ever being explained on
+the Status checklists in INSTALL.md) without ever being explained on
 its own, so here it is.
 
 Gerrit and Gitea don't just *authenticate* against LDAP — checking a
@@ -444,7 +444,7 @@ never rewrite history.
 
 Script: `scripts/post-install/final-remove-test-users.sh` — the name
 says when: last, after everything else you're going to run in
-`scripts/post-install/` and `scripts/install/` (see SYSADMIN.md's "Run
+`scripts/post-install/` and `scripts/install/` (see INSTALL.md's "Run
 the scripts as root"). Does everything below in order (offboards all
 three with `--delete-entry`, then deletes `cn=developers` only if it's
 actually empty afterward). Needs `LDAP_ADMIN_PW`, `GERRIT_ADMIN_PW`,
@@ -458,7 +458,7 @@ sudo LDAP_ADMIN_PW='...' GERRIT_ADMIN_PW='...' GITEA_ADMIN_PW='...' \
 Run this LAST relative to `scripts/install/12-gerrit-postgresql.sh` and
 `13-gitea-postgresql.sh`: both authenticate as `alice`/`carol` as part
 of their own verification, so they need to run *before* this script,
-not after — see SYSADMIN.md's "Which ones to run, and in what order"
+not after — see INSTALL.md's "Which ones to run, and in what order"
 for why. `scripts/post-install/ldap-least-privilege.sh` does NOT have
 this constraint (it verifies against `gerrit-bot` instead, precisely so
 it doesn't care about this ordering — confirmed live: an earlier
@@ -534,7 +534,7 @@ As with any offboard, nothing in Gerrit/Gitea's own history is
 touched — commits `scripts/install/05`/`07`/`09` and
 `scripts/install/12-gerrit-postgresql.sh` authored as `carol` during
 bootstrap keep her name/email in their history forever, same as any
-other offboarded user's past work. And as SYSADMIN.md's "Which ones to
+other offboarded user's past work. And as INSTALL.md's "Which ones to
 run, and in what order" notes: once these three are gone, several
 other scripts stop working too, since they authenticate as `carol` —
 `scripts/install/04`-`07`/`09`/`10` hardcode her original
@@ -558,7 +558,7 @@ mirrors into `engineering` regardless (hardcoded in
 add foo` creates the Gerrit project, replicates it into `engineering/foo`
 anyway, and then dies after 30s claiming `other-org/foo` never appeared —
 confusing, since the repo *did* get created, just not where asked. See
-WORKFLOW.md section 2 and SYSADMIN.md gotcha 17 for the full picture
+WORKFLOW.md section 2 and INSTALL.md gotcha 17 for the full picture
 (this applies in both directions: a repo created in any org other than
 `engineering`, including directly in Gitea, never reaches Gerrit either).
 

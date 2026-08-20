@@ -1,6 +1,6 @@
 # TODO
 
-Sysadmin/infra setup is done — see [SYSADMIN.md](SYSADMIN.md)'s Status
+Sysadmin/infra setup is done — see [INSTALL.md](INSTALL.md)'s Status
 checklist and the `scripts/` directory. What's left is workflow-side, per
 WORKFLOW.md's "Open items / future work":
 

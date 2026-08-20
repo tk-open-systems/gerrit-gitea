@@ -10,7 +10,7 @@
 # exercise the migrated feature and rerun a push/review/submit cycle --
 # so this must run BEFORE scripts/post-install/final-remove-test-users.sh, not
 # after (same reason as scripts/post-install/ldap-least-privilege.sh; see
-# SYSADMIN.md's "Which ones to run, and in what order").
+# INSTALL.md's "Which ones to run, and in what order").
 #
 # What Gerrit's H2 database actually holds (confirmed by inspecting
 # /var/lib/gerrit/db/ before touching anything): just

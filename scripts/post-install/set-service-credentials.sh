@@ -29,7 +29,7 @@
 #   sudo bash set-service-credentials.sh
 # None of these three (or four) are touched by scripts/install/ on its
 # own -- a fresh install leaves every one of them at the lab default
-# ChangeMe123! by design (SYSADMIN.md: reproducibility), so `all` (or
+# ChangeMe123! by design (INSTALL.md: reproducibility), so `all` (or
 # no arguments) is the single command that gets a fresh install off it.
 #
 # A new password is generated per account (openssl rand) unless you

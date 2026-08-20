@@ -187,7 +187,7 @@ wait_for_http "${GERRIT_URL}/" 120 \
 
 # --- 4. Gitea: same, via its LDAP auth source ---
 #
-# Learned the hard way (again -- see SYSADMIN.md gotcha 11 for the
+# Learned the hard way (again -- see INSTALL.md gotcha 11 for the
 # first time this exact class of bug bit us): `update-ldap` with only
 # --bind-dn/--bind-password silently reset the group-sync fields
 # (group-search-base-dn etc.) to empty, breaking Gitea's group lookups

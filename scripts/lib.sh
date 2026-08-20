@@ -22,7 +22,7 @@ die() { printf '[%s] ERROR: %s\n' "$SCRIPT_NAME" "$*" >&2; exit 1; }
 # public name that differs from their local hostname.
 _actual_fqdn="$(hostname -f 2>/dev/null || hostname)"
 if [ "$_actual_fqdn" != "$HOST_FQDN" ]; then
-  warn "this host's real FQDN ('hostname -f') is '${_actual_fqdn}' but scripts/config.sh has HOST_FQDN='${HOST_FQDN}' -- if that's not deliberate, fix config.sh before continuing (see SYSADMIN.md's \"Running it\")."
+  warn "this host's real FQDN ('hostname -f') is '${_actual_fqdn}' but scripts/config.sh has HOST_FQDN='${HOST_FQDN}' -- if that's not deliberate, fix config.sh before continuing (see INSTALL.md's \"Running it\")."
 fi
 unset _actual_fqdn
 

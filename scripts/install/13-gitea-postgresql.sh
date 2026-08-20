@@ -10,7 +10,7 @@
 # still log in and checks alice's team membership survived -- so this
 # must run BEFORE scripts/post-install/final-remove-test-users.sh, not after
 # (same reason as scripts/post-install/ldap-least-privilege.sh; see
-# SYSADMIN.md's "Which ones to run, and in what order").
+# INSTALL.md's "Which ones to run, and in what order").
 #
 # Unlike Gerrit's H2 (which only held disposable reviewed-file
 # checkboxes), Gitea's SQLite file holds everything -- users, orgs,
@@ -115,7 +115,7 @@ with open(app_ini_path, "w") as f:
     f.write(content)
 PYEOF
 # Keep app.ini owned by gitea:gitea (not root) -- Gitea's own process
-# needs write access to it for auto-persisted values (see SYSADMIN.md
+# needs write access to it for auto-persisted values (see INSTALL.md
 # gotcha 1); only tighten the mode, don't change the owner.
 chmod 640 "$APP_INI"
 

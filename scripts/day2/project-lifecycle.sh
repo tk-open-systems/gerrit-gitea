@@ -97,7 +97,7 @@ ORIG_ARGS_Q=$(printf '%q ' "$@")
 # silently-ish 30s into `add` with a confusing "Gitea repo never
 # appeared" error, after the Gerrit project and the engineering/ mirror
 # had already been created -- fail immediately instead, before touching
-# anything. See SYSADMIN.md gotcha 17 / WORKFLOW.md section 2.
+# anything. See INSTALL.md gotcha 17 / WORKFLOW.md section 2.
 if [ -n "${GITEA_ORG:-}" ] && [ "$GITEA_ORG" != "engineering" ]; then
   die "GITEA_ORG='${GITEA_ORG}' was given, but this only changes which org this script itself talks to -- it does NOT redirect where Gerrit's replication plugin mirrors the project, which is always 'engineering' (hardcoded in scripts/install/07-replication.sh). There is no supported way to replicate into a different Gitea org. Unset GITEA_ORG (or set it to 'engineering') and rerun: ${SCRIPT_NAME} ${ORIG_ARGS_Q}"
 fi

@@ -73,7 +73,7 @@ Pull-Requests-unit-disable and branch-protection safeguards are applied
 per-project by `ggadmin-project`, which itself can only ever target
 `engineering` — see ADMIN.md's "Add a project"). Treat it as a fully
 unmanaged, ungoverned space if it appears — not a smaller/alternate
-version of the real workflow. See SYSADMIN.md gotcha 17.
+version of the real workflow. See INSTALL.md gotcha 17.
 
 Use Gerrit's **replication plugin**, not Gitea's pull-mirror:
 
@@ -141,7 +141,7 @@ Use Gerrit's **replication plugin**, not Gitea's pull-mirror:
 Every step from 1 onward assumes a developer's LDAP `developers`-group
 membership actually grants working Gitea access (repo read, issue
 write, wiki write) — worth calling out because it silently didn't for a
-while: a Gitea API quirk (see SYSADMIN.md gotcha 11) meant the
+while: a Gitea API quirk (see INSTALL.md gotcha 11) meant the
 `Developers` team's org-wide grant never actually took effect, so
 developers got `404` on the repo, its issues, and its wiki the entire
 time despite every setup script reporting success. Confirmed fixed by

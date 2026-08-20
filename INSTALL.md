@@ -563,7 +563,7 @@ and why, not how to sequence them.
   this account actually does day to day, not just this status bullet)
   and, since the directory had no explicit ACLs at all before this,
   running on OpenLDAP's wide-open compiled-in default — locked down
-  anonymous access too. See SYSADMIN gotcha 12 for the real discovery
+  anonymous access too. See gotcha 12 above for the real discovery
   this took: a naive
   reader-only ACL breaks Gitea's group sync, because Gitea's LDAP client
   reuses one connection across the login flow and ends up running the

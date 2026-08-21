@@ -20,6 +20,7 @@ obvious from the plugin docs alone.
 | **[INSTALL.md](INSTALL.md)** | Whoever stands this up | Installing from scratch (`scripts/install/`), architecture, design decisions, gotchas found by actually running this, post-install hardening, and teardown. |
 | **[ADMIN.md](ADMIN.md)** | Whoever administers it day to day | Adding/changing/removing users and projects, the `ggadmin-*` command-line tools (`scripts/day2/`), and the credentials each one needs. |
 | **[WORKFLOW.md](WORKFLOW.md)** | Whoever develops against it | How Gerrit and Gitea fit together day to day: identity/ACLs, repo mirroring, linking changes to issues, the end-to-end push→review→submit→replicate flow, and customer branch delivery. |
+| **[HOWTO.md](HOWTO.md)** | Anyone who just wants the command | FAQ-style one-liners for common tasks, each linking back to the fuller explanation in the doc above it belongs to. |
 | **[TODO.md](TODO.md)** | Anyone picking up open work | What's left, and why each item is deferred rather than done. |
 
 If you're setting this up for the first time, start with INSTALL.md. If

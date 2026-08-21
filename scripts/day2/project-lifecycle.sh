@@ -36,6 +36,13 @@
 #   project-lifecycle.sh add <project> [description]
 #   project-lifecycle.sh describe <project> <description> [--gitea-too]
 #   project-lifecycle.sh delete <project>
+#   project-lifecycle.sh list
+#
+# list prints one line per Gerrit project (name, description --
+# tab-separated, no header row), excluding the special All-Projects/
+# All-Users permission-only projects (Gerrit's own type=CODE filter).
+# Gerrit-only -- doesn't check Gitea's mirror state, so it's the
+# project list Gerrit itself has, not a replication-health check.
 #
 # add is safe to rerun: if the Gerrit project already exists it's left
 # alone, but the two Gitea follow-ups are still (re-)applied -- handy
@@ -72,6 +79,7 @@ Usage:
   $SCRIPT_NAME add <project> [description]
   $SCRIPT_NAME describe <project> <description> [--gitea-too]
   $SCRIPT_NAME delete <project>
+  $SCRIPT_NAME list
 
 See the top of this script for required environment variables.
 EOF
@@ -194,6 +202,14 @@ cmd_add() {
   log "  push for review with: git push <remote> HEAD:refs/for/main -- never straight to 'main' (see ADMIN.md 'Add a project' / WORKFLOW.md section 2)"
 }
 
+cmd_list() {
+  gerrit_api "${GERRIT_URL}/a/projects/?d&type=CODE" | tail -n +2 \
+    | python3 -c 'import json,sys
+d = json.load(sys.stdin)
+for name in sorted(d):
+    print(name, d[name].get("description", ""), sep="\t")'
+}
+
 cmd_describe() {
   local project=$1 description=$2 gitea_too=${3:-}
 
@@ -243,5 +259,6 @@ case "$CMD" in
   add)      [ $# -ge 1 ] && [ $# -le 2 ] || usage; cmd_add "$@" ;;
   describe) [ $# -ge 2 ] && [ $# -le 3 ] || usage; cmd_describe "$@" ;;
   delete)   [ $# -eq 1 ] || usage; cmd_delete "$@" ;;
+  list)     [ $# -eq 0 ] || usage; cmd_list ;;
   *) usage ;;
 esac

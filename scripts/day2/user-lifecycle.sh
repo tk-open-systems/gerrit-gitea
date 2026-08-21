@@ -27,11 +27,19 @@
 # Usage:
 #   user-lifecycle.sh add <uid> <full name> <email> [group ...]
 #   user-lifecycle.sh set-password <uid>
+#   user-lifecycle.sh list
 #   user-lifecycle.sh groups <uid>
 #   user-lifecycle.sh add-group <uid> <group>
 #   user-lifecycle.sh remove-group <uid> <group>
 #   user-lifecycle.sh offboard <uid> [--delete-entry]
 #   user-lifecycle.sh reactivate <uid>
+#
+# list prints one line per LDAP user: uid, full name, groups (comma-
+# separated, "<none>" if in none) -- tab-separated, no header row, so
+# it stays easy to pipe through cut/awk/column -t. LDAP_ADMIN_PW only
+# -- read-only, doesn't touch Gerrit/Gitea (their own account state,
+# e.g. is:inactive, isn't LDAP data -- see ADMIN.md section 1 on that
+# asymmetry).
 #
 # add/set-password print a freshly generated password once at the end
 # (or use the one given via NEW_USER_PW) -- nothing is stored by this
@@ -67,6 +75,7 @@ usage() {
 Usage:
   $SCRIPT_NAME add <uid> <full name> <email> [group ...]
   $SCRIPT_NAME set-password <uid>
+  $SCRIPT_NAME list
   $SCRIPT_NAME groups <uid>
   $SCRIPT_NAME add-group <uid> <group>
   $SCRIPT_NAME remove-group <uid> <group>
@@ -216,6 +225,23 @@ cmd_groups() {
   else
     printf '%s\n' "$g"
   fi
+}
+
+cmd_list() {
+  local uids
+  uids=$(ldap_search -b "$PEOPLE_BASE" -s sub "(objectClass=inetOrgPerson)" uid 2>/dev/null \
+    | sed -n 's/^uid: //p' | sort)
+  if [ -z "$uids" ]; then
+    log "no users found under ${PEOPLE_BASE}"
+    return 0
+  fi
+  local uid cn groups
+  while IFS= read -r uid; do
+    [ -n "$uid" ] || continue
+    cn=$(ldap_search -b "$(user_dn "$uid")" -s base "(objectClass=*)" cn 2>/dev/null | sed -n 's/^cn: //p')
+    groups=$(groups_of "$uid" | paste -sd, -)
+    printf '%s\t%s\t%s\n' "$uid" "$cn" "${groups:-<none>}"
+  done <<< "$uids"
 }
 
 cmd_add_group() {
@@ -399,6 +425,7 @@ CMD=$1; shift
 case "$CMD" in
   add)           [ $# -ge 3 ] || usage; cmd_add "$@" ;;
   set-password)  [ $# -eq 1 ] || usage; cmd_set_password "$@" ;;
+  list)          [ $# -eq 0 ] || usage; cmd_list ;;
   groups)        [ $# -eq 1 ] || usage; cmd_groups "$@" ;;
   add-group)     [ $# -eq 2 ] || usage; cmd_add_group "$@" ;;
   remove-group)  [ $# -eq 2 ] || usage; cmd_remove_group "$@" ;;

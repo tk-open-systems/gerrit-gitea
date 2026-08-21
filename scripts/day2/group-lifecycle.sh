@@ -26,7 +26,11 @@
 # Usage:
 #   group-lifecycle.sh create <group> <initial-member-uid>
 #   group-lifecycle.sh delete <group>
+#   group-lifecycle.sh list
 #   group-lifecycle.sh members <group>
+#
+# list prints one line per LDAP group: name, member count -- tab-
+# separated, no header row.
 #
 # create is safe to rerun: an already-existing group is left alone (a
 # member is NOT retroactively added -- use `ggadmin-user add-group` for
@@ -56,6 +60,7 @@ usage() {
 Usage:
   $SCRIPT_NAME create <group> <initial-member-uid>
   $SCRIPT_NAME delete <group>
+  $SCRIPT_NAME list
   $SCRIPT_NAME members <group>
 
 See the top of this script for required environment variables.
@@ -100,6 +105,11 @@ group_exists() {
   ldap_search -b "$(group_dn "$1")" -s base "(objectClass=*)" dn >/dev/null 2>&1
 }
 
+group_member_count() {
+  ldap_search -b "$(group_dn "$1")" -s base "(objectClass=*)" member 2>/dev/null \
+    | grep -c "^member:" || true
+}
+
 cmd_create() {
   local group=$1 member_uid=$2
 
@@ -133,6 +143,21 @@ EOF
   log "deleted group '${group}'"
 }
 
+cmd_list() {
+  local groups
+  groups=$(ldap_search -b "$GROUPS_BASE" -s sub "(objectClass=groupOfNames)" cn 2>/dev/null \
+    | sed -n 's/^cn: //p' | sort)
+  if [ -z "$groups" ]; then
+    log "no groups found under ${GROUPS_BASE}"
+    return 0
+  fi
+  local g
+  while IFS= read -r g; do
+    [ -n "$g" ] || continue
+    printf '%s\t%s member(s)\n' "$g" "$(group_member_count "$g")"
+  done <<< "$groups"
+}
+
 cmd_members() {
   local group=$1
   group_exists "$group" || die "no such group: $group"
@@ -151,6 +176,7 @@ CMD=$1; shift
 case "$CMD" in
   create)   [ $# -eq 2 ] || usage; cmd_create "$@" ;;
   delete)   [ $# -eq 1 ] || usage; cmd_delete "$@" ;;
+  list)     [ $# -eq 0 ] || usage; cmd_list ;;
   members)  [ $# -eq 1 ] || usage; cmd_members "$@" ;;
   *) usage ;;
 esac

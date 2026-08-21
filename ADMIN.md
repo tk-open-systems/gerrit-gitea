@@ -71,9 +71,12 @@ whatever `ggadmin-user add gerrit-bot ...` or
 `ggadmin-user set-password gerrit-bot` last set it to (see "Setting up
 the Gerrit service account" below).
 
-- **`ggadmin-user add / set-password / groups / add-group /
+- **`ggadmin-user add / set-password / list / groups / add-group /
   remove-group`** — `LDAP_ADMIN_PW` only (`cn=admin`'s password). These
   never touch Gerrit or Gitea directly, only the shared LDAP directory.
+  `list` prints every LDAP user with their groups — read-only, so it's
+  purely local LDAP data, not each account's separate Gerrit/Gitea
+  active/inactive state (see "Change a user" below for that asymmetry).
 - **`ggadmin-user offboard`** — `LDAP_ADMIN_PW`, plus `GERRIT_ADMIN_PW`
   and `GITEA_ADMIN_PW` (current passwords for the `gerrit-bot`/
   `gitea-admin` admin accounts — see "Setting up the Gerrit service
@@ -83,12 +86,17 @@ the Gerrit service account" below).
   `LDAP_ADMIN_PW` is also required up front even though this particular
   subcommand never touches LDAP — the check runs before the script knows
   which subcommand you picked.
-- **`ggadmin-project add / describe / delete`** — `GERRIT_ADMIN_PW` and
-  `GITEA_ADMIN_PW` for all three; there's no LDAP-only path here since
-  every project operation touches at least one of Gerrit or Gitea.
-- **`ggadmin-group create / delete / members`** — `LDAP_ADMIN_PW` only,
-  same reasoning as `ggadmin-user`'s LDAP-only subcommands above: this
-  never touches Gerrit or Gitea, only the shared LDAP directory.
+- **`ggadmin-project add / describe / delete / list`** —
+  `GERRIT_ADMIN_PW` and `GITEA_ADMIN_PW` for all four, even `list` (which
+  only actually queries Gerrit) — kept consistent with the other three
+  rather than adding a partial-credential special case. `list` prints
+  every Gerrit project (name + description), excluding `All-Projects`/
+  `All-Users`; it's Gerrit's own project list, not a check of whether
+  each one's Gitea mirror actually exists.
+- **`ggadmin-group create / delete / list / members`** — `LDAP_ADMIN_PW`
+  only, same reasoning as `ggadmin-user`'s LDAP-only subcommands above:
+  this never touches Gerrit or Gitea, only the shared LDAP directory.
+  `list` prints every LDAP group with its member count.
 
 ### What these credentials are, and how they're set
 

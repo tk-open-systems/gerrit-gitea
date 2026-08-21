@@ -15,6 +15,11 @@ as `<host>`) — see ADMIN.md/INSTALL.md's intros for why.
 
 ## Users
 
+- **List all users, with their groups** —
+  `sudo LDAP_ADMIN_PW='...' ggadmin-user list`
+  One line per user: uid, full name, groups (tab-separated, no header —
+  pipe through `column -t` for a table).
+
 - **Add a new user** —
   `sudo LDAP_ADMIN_PW='...' ggadmin-user add dave "Dave Developer" dave@tkos.co.il developers`
   See ADMIN.md's "Add a user".
@@ -52,6 +57,10 @@ as `<host>`) — see ADMIN.md/INSTALL.md's intros for why.
   Undoes the explicit deactivation only — does not restore LDAP group
   membership pulled during offboarding.
 
+- **List all LDAP groups** —
+  `sudo LDAP_ADMIN_PW='...' ggadmin-group list`
+  One line per group: name, member count.
+
 - **Create a new LDAP group** —
   `sudo LDAP_ADMIN_PW='...' ggadmin-group create <group> <initial-member-uid>`
   A group needs at least one member even at creation
@@ -65,6 +74,12 @@ as `<host>`) — see ADMIN.md/INSTALL.md's intros for why.
   `sudo LDAP_ADMIN_PW='...' ggadmin-group members <group>`
 
 ## Projects / repos
+
+- **List all projects** —
+  `sudo GERRIT_ADMIN_PW='...' GITEA_ADMIN_PW='...' ggadmin-project list`
+  One line per Gerrit project: name, description. Excludes
+  `All-Projects`/`All-Users`. Gerrit-only — doesn't check whether each
+  one's Gitea mirror actually exists.
 
 - **Create a new project (the only way to get a repo Gerrit tracks)** —
   `sudo GERRIT_ADMIN_PW='...' GITEA_ADMIN_PW='...' ggadmin-project add my-new-project "description"`
